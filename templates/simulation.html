@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ORBIT-GUARD | Orbital Simulation</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0a0f; color:#e0e0e0; font-family:'Courier New',monospace; overflow:hidden; }
+  .topbar {
+    background:linear-gradient(90deg,#0d0d1a,#0a1628);
+    border-bottom:1px solid #00d4ff33;
+    padding:10px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .logo { font-size:18px; font-weight:bold; color:#00d4ff; letter-spacing:3px; }
+  .logo span { color:#ff4444; }
+  .controls { display:flex; gap:12px; align-items:center; }
+  .btn {
+    background:#0d0d1a; border:1px solid #00d4ff44; color:#00d4ff;
+    padding:6px 14px; border-radius:6px; cursor:pointer;
+    font-family:'Courier New',monospace; font-size:11px; letter-spacing:1px;
+  }
+  .btn:hover { background:#00d4ff22; }
+  .btn.active { background:#00d4ff33; border-color:#00d4ff; }
+  .legend {
+    position:fixed; bottom:20px; left:20px;
+    background:#0d0d1acc; border:1px solid #1a1a3a;
+    border-radius:10px; padding:12px 16px; font-size:11px;
+  }
+  .legend-item { display:flex; align-items:center; gap:8px; margin:4px 0; }
+  .dot { width:10px; height:10px; border-radius:50%; }
+  .info-panel {
+    position:fixed; top:70px; right:20px;
+    background:#0d0d1acc; border:1px solid #1a1a3a;
+    border-radius:10px; padding:14px; font-size:11px; width:220px; line-height:1.8;
+  }
+  .info-panel h4 { color:#00d4ff; margin-bottom:8px; letter-spacing:2px; }
+  .back-btn {
+    background:#0d0d1a; border:1px solid #ff444444; color:#ff4444;
+    padding:6px 14px; border-radius:6px; cursor:pointer;
+    font-family:'Courier New',monospace; font-size:11px; text-decoration:none; display:inline-block;
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">ORBIT<span>-</span>GUARD <span style="color:#666;font-size:13px;margin-left:12px">ORBITAL SIMULATION</span></div>
+  <div class="controls">
+    <button class="btn active" id="btn-sim" onclick="toggleSim()">⏸ PAUSE</button>
+    <button class="btn" id="btn-mission" onclick="toggleMission()">🚀 LAUNCH MISSION</button>
+    <a href="/" class="back-btn">← MISSION CONTROL</a>
+  </div>
+</div>
+<canvas id="canvas"></canvas>
+<div class="legend">
+  <div style="color:#00d4ff;font-size:10px;letter-spacing:2px;margin-bottom:8px">RISK LEVEL</div>
+  <div class="legend-item"><div class="dot" style="background:#ff4444"></div> CRITICAL</div>
+  <div class="legend-item"><div class="dot" style="background:#ff8800"></div> HIGH</div>
+  <div class="legend-item"><div class="dot" style="background:#ffcc00"></div> MEDIUM</div>
+  <div class="legend-item"><div class="dot" style="background:#00cc44"></div> LOW</div>
+  <div class="legend-item"><div class="dot" style="background:#00d4ff"></div> REMOVAL CRAFT</div>
+</div>
+<div class="info-panel">
+  <h4>SELECTED OBJECT</h4>
+  <div id="info-content" style="color:#555">Click a debris object<br>to see details</div>
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight - 50;
+const CX = canvas.width/2, CY = canvas.height/2;
+const EARTH_R = 50, SCALE = 0.18;
+const COLORS = {CRITICAL:'#ff4444',HIGH:'#ff8800',MEDIUM:'#ffcc00',LOW:'#00cc44'};
+let debris=[], running=true, missionActive=false;
+let missionTarget=null, removedIds=new Set(), selectedObj=null;
+let craftAngle=0, craftOrbitR=EARTH_R+15;
+
+async function loadDebris() {
+  const res = await fetch('/api/debris');
+  const data = await res.json();
+  debris = data.map((d,i) => ({
+    ...d,
+    angle: (i/data.length)*Math.PI*2 + Math.random()*0.5,
+    orbitR: Math.min((d.perigee*SCALE)+EARTH_R+20, Math.min(CX,CY)-30),
+    speed: 0.0008+(d.mean_motion-13)*0.0001,
+    size: d.risk_level==='CRITICAL'?7:d.risk_level==='HIGH'?5:4,
+  }));
+  if(debris.length>0) missionTarget=debris[0];
+}
+
+function drawEarth() {
+  const glow=ctx.createRadialGradient(CX,CY,EARTH_R*0.5,CX,CY,EARTH_R*2.5);
+  glow.addColorStop(0,'#0044ff22'); glow.addColorStop(1,'transparent');
+  ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(CX,CY,EARTH_R*2.5,0,Math.PI*2); ctx.fill();
+  const grad=ctx.createRadialGradient(CX-10,CY-10,5,CX,CY,EARTH_R);
+  grad.addColorStop(0,'#1a6bbf'); grad.addColorStop(0.5,'#1a4fa0');
+  grad.addColorStop(0.8,'#0d3a7a'); grad.addColorStop(1,'#071a3a');
+  ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(CX,CY,EARTH_R,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#4488ff44'; ctx.lineWidth=5;
+  ctx.beginPath(); ctx.arc(CX,CY,EARTH_R+3,0,Math.PI*2); ctx.stroke();
+}
+
+function drawDebris() {
+  debris.forEach(d => {
+    if(removedIds.has(d.norad_id)) return;
+    const x=CX+Math.cos(d.angle)*d.orbitR;
+    const y=CY+Math.sin(d.angle)*d.orbitR;
+    const color=COLORS[d.risk_level];
+    ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=0.4;
+    ctx.globalAlpha=0.2; ctx.beginPath();
+    ctx.arc(CX,CY,d.orbitR,0,Math.PI*2); ctx.stroke(); ctx.restore();
+    if(d.risk_level==='CRITICAL'||d.risk_level==='HIGH') {
+      ctx.save(); ctx.globalAlpha=0.15+0.1*Math.sin(Date.now()*0.004);
+      ctx.fillStyle=color; ctx.beginPath();
+      ctx.arc(x,y,d.size+5,0,Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,d.size,0,Math.PI*2); ctx.fill();
+    if(selectedObj&&selectedObj.norad_id===d.norad_id) {
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(x,y,d.size+5,0,Math.PI*2); ctx.stroke();
+    }
+    if(d.risk_level==='CRITICAL'||(selectedObj&&selectedObj.norad_id===d.norad_id)) {
+      ctx.fillStyle=color; ctx.font='9px Courier New';
+      ctx.fillText(d.name.split(' ')[0],x+8,y-4);
+    }
+    d.x=x; d.y=y;
+  });
+}
+
+function drawMission() {
+  if(!missionActive||!missionTarget) return;
+  const target=debris.find(d=>d.norad_id===missionTarget.norad_id);
+  if(!target||!target.x) return;
+  craftOrbitR+=(target.orbitR-craftOrbitR)*0.008;
+  craftAngle+=0.018;
+  const cx2=CX+Math.cos(craftAngle)*craftOrbitR;
+  const cy2=CY+Math.sin(craftAngle)*craftOrbitR;
+  ctx.save(); ctx.strokeStyle='#00d4ff44'; ctx.lineWidth=1;
+  ctx.setLineDash([4,6]); ctx.beginPath();
+  ctx.moveTo(cx2,cy2); ctx.lineTo(target.x,target.y); ctx.stroke(); ctx.restore();
+  ctx.fillStyle='#00d4ff'; ctx.shadowBlur=12; ctx.shadowColor='#00d4ff';
+  ctx.beginPath(); ctx.arc(cx2,cy2,6,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur=0; ctx.fillStyle='#00d4ff'; ctx.font='9px Courier New';
+  ctx.fillText('REMOVER-1',cx2+8,cy2-4);
+  const dist=Math.sqrt((cx2-target.x)**2+(cy2-target.y)**2);
+  if(dist<15) {
+    removedIds.add(missionTarget.norad_id);
+    const remaining=debris.filter(d=>!removedIds.has(d.norad_id)&&(d.risk_level==='CRITICAL'||d.risk_level==='HIGH'));
+    missionTarget=remaining.length>0?remaining[0]:debris.find(d=>!removedIds.has(d.norad_id))||null;
+    if(!missionTarget) { missionActive=false; document.getElementById('btn-mission').textContent='✅ MISSION COMPLETE'; }
+  }
+}
+
+function drawStats() {
+  const active=debris.filter(d=>!removedIds.has(d.norad_id)).length;
+  ctx.fillStyle='#333'; ctx.font='11px Courier New';
+  ctx.fillText(`TRACKING: ${active} objects   REMOVED: ${removedIds.size}   MISSION: ${missionActive?'ACTIVE ▶':'STANDBY'}`,20,canvas.height-15);
+}
+
+function animate() {
+  ctx.fillStyle='#0a0a0f'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  // stars
+  if(!animate.stars) { animate.stars=[...Array(80)].map(()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.2})); }
+  animate.stars.forEach(s=>{ ctx.fillStyle='#ffffff22'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); });
+  drawEarth(); drawDebris(); drawMission(); drawStats();
+  if(running) debris.forEach(d=>{ if(!removedIds.has(d.norad_id)) d.angle+=d.speed; });
+  requestAnimationFrame(animate);
+}
+
+canvas.addEventListener('click',(e)=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  let closest=null, minDist=20;
+  debris.forEach(d=>{ if(!d.x||removedIds.has(d.norad_id)) return;
+    const dist=Math.sqrt((mx-d.x)**2+(my-d.y)**2);
+    if(dist<minDist){minDist=dist;closest=d;}
+  });
+  if(closest){ selectedObj=closest;
+    document.getElementById('info-content').innerHTML=`
+      <b style="color:#fff">${closest.name}</b><br>
+      NORAD: <span style="color:#aaa">${closest.norad_id}</span><br>
+      Risk: <span style="color:${COLORS[closest.risk_level]}">${closest.risk_level} — ${closest.risk_percent}%</span><br>
+      Perigee: <span style="color:#fff">${closest.perigee} km</span><br>
+      Inclination: <span style="color:#fff">${closest.inclination}°</span><br>
+      Eccentricity: <span style="color:#fff">${closest.eccentricity}</span><br>
+      Priority Rank: <span style="color:#fff">#${closest.priority_rank}</span>`;
+  }
+});
+
+function toggleSim(){ running=!running; const b=document.getElementById('btn-sim'); b.textContent=running?'⏸ PAUSE':'▶ RESUME'; b.classList.toggle('active',running); }
+function toggleMission(){
+  missionActive=!missionActive;
+  if(missionActive){ removedIds.clear(); craftOrbitR=EARTH_R+15;
+    missionTarget=debris.find(d=>d.risk_level==='CRITICAL')||debris.find(d=>d.risk_level==='HIGH')||debris[0];
+    document.getElementById('btn-mission').textContent='🛑 ABORT MISSION';
+    document.getElementById('btn-mission').classList.add('active');
+  } else {
+    document.getElementById('btn-mission').textContent='🚀 LAUNCH MISSION';
+    document.getElementById('btn-mission').classList.remove('active');
+  }
+}
+loadDebris().then(animate);
+window.addEventListener('resize',()=>{ canvas.width=window.innerWidth; canvas.height=window.innerHeight-50; });
+</script>
+</body>
+</html>

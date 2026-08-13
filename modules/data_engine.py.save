@@ -1,0 +1,49 @@
+import requests, json, os
+from datetime import datetime, timedelta
+
+CACHE_FILE = "data/cached_debris_tle.json"
+CATALOG_URL = "https://celestrak.org/pub/TLE/catalog.txt"
+
+def fetch_live_tle():
+    if os.path.exists(CACHE_FILE):
+        mtime = datetime.fromtimestamp(os.path.getmtime(CACHE_FILE))
+        if datetime.now() - mtime < timedelta(hours=1):
+            print("[data_engine] Using cached TLE data")
+            with open(CACHE_FILE) as f:
+                return json.load(f)
+
+    try:
+        print("[data_engine] Fetching live TLE from CelesTrak...")
+        resp = requests.get(CATALOG_URL, timeout=10)
+        resp.raise_for_status()
+        lines = resp.text.strip().splitlines()
+
+        debris_list = []
+        i = 0
+        while i < len(lines) - 2:
+            name = lines[i].strip()
+            tle1 = lines[i+1].strip()
+            tle2 = lines[i+2].strip()
+            if tle1.startswith("1 ") and tle2.startswith("2 "):
+                debris_list.append({
+                    "name": name,
+                    "tle_line1": tle1,
+                    "tle_line2": tle2,
+                    "norad_id": tle1[2:7].strip()
+                })
+            i += 3
+
+        debris_only = [d for d in debris_list if "DEB" in d["name"] or "R/B" in d["name"]][:100]
+
+        os.makedirs("data", exist_ok=True)
+        with open(CACHE_FILE, "w") as f:
+            json.dump(debris_only, f, indent=2)
+
+        print(f"[data_engine] Cached {len(debris_only)} debris objects")
+        return debris_only
+
+    except Exception as e:
+        print(f"[data_engine] Live fetch failed: {e} — using cached data")
+        if os.path.exists(CACHE_FILE):
+            with open(CACHE_FILE) as f:
+                return json.load(f)
