@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, send_file
+content = '''from flask import Flask, render_template, jsonify, send_file
 from modules.data_engine import fetch_live_tle
 from modules.ml_model import score_debris
 from modules.report_gen import generate_pdf
@@ -7,7 +7,6 @@ from modules.ai_reports import generate_all_threat_reports
 from modules.monte_carlo import run_monte_carlo
 from modules.anomaly import detect_anomalies
 from modules.prediction import predict_decay
-from modules.sgp4_propagator import propagate_debris
 
 app = Flask(__name__)
 
@@ -15,10 +14,6 @@ print("[startup] Loading debris data...")
 _debris = fetch_live_tle()
 _scored = score_debris(_debris)
 print(f"[startup] Scored {len(_scored)} objects")
-
-print("[startup] Running SGP4 propagation...")
-_sgp4_positions = propagate_debris(_scored)
-print(f"[startup] SGP4 positions computed for {len(_sgp4_positions)} objects")
 
 print("[startup] Running anomaly detection...")
 _anomalies = detect_anomalies(_scored)
@@ -59,12 +54,6 @@ def report_download():
 def api_debris():
     return jsonify(_scored)
 
-@app.route("/api/sgp4")
-def api_sgp4():
-    # Recompute live positions at time of request for real-time accuracy
-    positions = propagate_debris(_scored)
-    return jsonify(positions)
-
 @app.route("/api/anomalies")
 def api_anomalies():
     return jsonify(_anomalies)
@@ -92,3 +81,8 @@ def api_predictions():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
+'''
+
+with open('app.py', 'w', encoding='utf-8') as f:
+    f.write(content)
+print("app.py written successfully")

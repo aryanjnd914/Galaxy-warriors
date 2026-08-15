@@ -1,4 +1,4 @@
-import requests, json, os
+content = '''import requests, json, os
 from datetime import datetime, timedelta
 
 CACHE_FILE = "data/cached_debris_tle.json"
@@ -71,3 +71,8 @@ def fetch_live_tle():
     with open(CACHE_FILE, "w") as f:
         json.dump(FALLBACK_DATA, f, indent=2)
     return FALLBACK_DATA
+'''
+
+with open('modules/data_engine.py', 'w', encoding='utf-8') as f:
+    f.write(content)
+print("data_engine.py written with 20 objects fallback")

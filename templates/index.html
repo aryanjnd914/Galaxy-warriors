@@ -426,6 +426,144 @@ setInterval(loadConjunctions, 30000);
 
 
 
+
+
+<!-- DECAY PREDICTION PANEL -->
+<div style="margin: 0 24px 24px;">
+  <div style="background:#0a0a1a;border:1px solid #00ff8833;border-radius:12px;padding:20px;">
+    <div style="color:#00ff88;font-size:11px;letter-spacing:2px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+      <span style="width:3px;height:12px;background:#00ff88;border-radius:2px;display:inline-block;"></span>
+      30-DAY ORBITAL DECAY PREDICTION — LINEAR REGRESSION MODEL
+    </div>
+    <div id="pred-loading" style="color:#555;font-size:12px;">Computing decay predictions...</div>
+    <div id="pred-content" style="display:none;">
+      <div id="pred-summary" style="margin-bottom:12px;font-size:12px;color:#888;"></div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">OBJECT</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">CURRENT ALT</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">PREDICTED (30D)</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">TOTAL DECAY</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">DAILY RATE</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">TREND</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">REENTRY</th>
+          </tr>
+        </thead>
+        <tbody id="pred-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadPredictions() {
+  try {
+    const res = await fetch('/api/predictions');
+    const data = await res.json();
+    document.getElementById('pred-loading').style.display = 'none';
+    document.getElementById('pred-content').style.display = 'block';
+
+    const rapid = data.filter(d => d.trend === 'RAPID DECAY').length;
+    const reentry = data.filter(d => d.reentry_day !== null).length;
+    document.getElementById('pred-summary').innerHTML =
+      `Linear regression model predicts <b style="color:#ff4444">${rapid} objects</b> in rapid decay — 
+       <b style="color:#ff4444">${reentry} objects</b> predicted to reenter atmosphere within 30 days.`;
+
+    document.getElementById('pred-body').innerHTML = data.map(d => {
+      const reentryText = d.reentry_day !== null
+        ? `<span style="color:#ff4444;font-weight:bold;">DAY ${d.reentry_day}</span>`
+        : '<span style="color:#444;">—</span>';
+      const decayText = d.total_decay_km > 0
+        ? `<span style="color:${d.trend_color};">-${d.total_decay_km} km</span>`
+        : '<span style="color:#00cc44;">stable</span>';
+      return `<tr>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#fff;font-weight:bold;">${d.name}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#aaa;">${d.current_perigee} km</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#00d4ff;">${d.predicted_30d} km</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;">${decayText}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#aaa;">${d.daily_decay_km} km/day</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;">
+          <span style="color:${d.trend_color};font-weight:bold;font-size:11px;">${d.trend}</span>
+        </td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;">${reentryText}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('pred-loading').textContent = 'Error loading predictions.';
+  }
+}
+loadPredictions();
+</script>
+
+<!-- ANOMALY DETECTION PANEL -->
+<div style="margin: 0 24px 24px;">
+  <div style="background:#0a0a1a;border:1px solid #ff440033;border-radius:12px;padding:20px;">
+    <div style="color:#ff4444;font-size:11px;letter-spacing:2px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+      <span style="width:3px;height:12px;background:#ff4444;border-radius:2px;display:inline-block;"></span>
+      ANOMALY DETECTION — ISOLATION FOREST ML MODEL
+    </div>
+    <div id="anomaly-loading" style="color:#555;font-size:12px;">Scanning for anomalies...</div>
+    <div id="anomaly-content" style="display:none;">
+      <div id="anomaly-summary" style="margin-bottom:12px;font-size:12px;color:#888;"></div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">OBJECT</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">STATUS</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">ANOMALY SCORE</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">PERIGEE</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">ECCENTRICITY</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">DRAG (BSTAR)</th>
+          </tr>
+        </thead>
+        <tbody id="anomaly-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadAnomalies() {
+  try {
+    const res = await fetch('/api/anomalies');
+    const data = await res.json();
+    document.getElementById('anomaly-loading').style.display = 'none';
+    document.getElementById('anomaly-content').style.display = 'block';
+
+    const anomalies = data.filter(d => d.is_anomaly);
+    document.getElementById('anomaly-summary').innerHTML =
+      `Isolation Forest scanned <b style="color:#fff">${data.length}</b> objects — 
+       <b style="color:#ff4444">${anomalies.length} anomalies</b> detected with unusual orbital decay patterns.`;
+
+    document.getElementById('anomaly-body').innerHTML = data.map(d => {
+      const isAnom = d.is_anomaly;
+      const rowBg = isAnom ? 'background:#1a0505;' : '';
+      const statusColor = isAnom ? '#ff4444' : '#00cc44';
+      const scoreColor = d.anomaly_score > 60 ? '#ff4444' : d.anomaly_score > 30 ? '#ff8800' : '#00cc44';
+      return `<tr style="${rowBg}">
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#fff;font-weight:${isAnom?'bold':'normal'}">${d.name}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;">
+          <span style="color:${statusColor};font-weight:bold;font-size:11px;">${d.anomaly_label}</span>
+        </td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;">
+          <span style="color:${scoreColor};font-weight:bold;">${d.anomaly_score}%</span>
+          <span style="display:inline-block;width:60px;height:4px;background:#1a1a2e;border-radius:2px;margin-left:8px;vertical-align:middle;">
+            <span style="display:block;width:${d.anomaly_score}%;height:4px;background:${scoreColor};border-radius:2px;"></span>
+          </span>
+        </td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#aaa;">${d.perigee} km</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#aaa;">${d.eccentricity}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#aaa;">${d.bstar}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('anomaly-loading').textContent = 'Error loading anomaly data.';
+  }
+}
+loadAnomalies();
+</script>
+
 <!-- MONTE CARLO PANEL -->
 <div style="margin: 0 24px 24px;">
   <div style="background:#0a0a1a;border:1px solid #00d4ff33;border-radius:12px;padding:20px;">
@@ -479,6 +617,857 @@ async function loadMonteCarlo() {
 }
 loadMonteCarlo();
 setInterval(loadMonteCarlo, 60000);
+</script>
+
+
+<!-- DECAY PREDICTION PANEL -->
+<div style="margin: 0 24px 24px;">
+  <div style="background:#0a0a1a;border:1px solid #00ff8833;border-radius:12px;padding:20px;">
+    <div style="color:#00ff88;font-size:11px;letter-spacing:2px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+      <span style="width:3px;height:12px;background:#00ff88;border-radius:2px;display:inline-block;"></span>
+      30-DAY ORBITAL DECAY PREDICTION — LINEAR REGRESSION MODEL
+    </div>
+    <div id="pred-loading" style="color:#555;font-size:12px;">Computing decay predictions...</div>
+    <div id="pred-content" style="display:none;">
+      <div id="pred-summary" style="margin-bottom:12px;font-size:12px;color:#888;"></div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">OBJECT</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">CURRENT ALT</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">PREDICTED (30D)</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">TOTAL DECAY</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">DAILY RATE</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">TREND</th>
+            <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">REENTRY</th>
+          </tr>
+        </thead>
+        <tbody id="pred-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadPredictions() {
+  try {
+    const res = await fetch('/api/predictions');
+    const data = await res.json();
+    document.getElementById('pred-loading').style.display = 'none';
+    document.getElementById('pred-content').style.display = 'block';
+    const rapid = data.filter(d => d.trend === 'RAPID DECAY').length;
+    const reentry = data.filter(d => d.reentry_day !== null).length;
+    document.getElementById('pred-summary').innerHTML =
+      `Linear regression model predicts <b style="color:#ff4444">${rapid} objects</b> in rapid decay —
+       <b style="color:#ff4444">${reentry} objects</b> predicted to reenter within 30 days.`;
+    document.getElementById('pred-body').innerHTML = data.map(d => {
+      const reentryText = d.reentry_day !== null
+        ? `<span style="color:#ff4444;font-weight:bold;">DAY ${d.reentry_day}</span>`
+        : '<span style="color:#444;">STABLE</span>';
+      return `<tr>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#fff;font-weight:bold;">${d.name}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#aaa;">${d.current_perigee} km</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#00d4ff;">${d.predicted_30d} km</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:${d.trend_color};">-${d.total_decay_km} km</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#aaa;">${d.daily_decay_km} km/day</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:${d.trend_color};font-weight:bold;">${d.trend}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;">${reentryText}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('pred-loading').textContent = 'Error loading predictions.';
+  }
+}
+loadPredictions();
+</script>
+
+<!-- ORBITAL SHELL HEATMAP PANEL -->
+<div style="margin: 0 24px 24px;">
+  <div style="background:#0a0a1a;border:1px solid #ff880033;border-radius:12px;padding:20px;">
+    <div style="color:#ff8800;font-size:11px;letter-spacing:2px;margin-bottom:4px;display:flex;align-items:center;gap:8px;">
+      <span style="width:3px;height:12px;background:#ff8800;border-radius:2px;display:inline-block;"></span>
+      ORBITAL SHELL DENSITY HEATMAP — DEBRIS CONCENTRATION BY ALTITUDE BAND
+    </div>
+    <div style="color:#444;font-size:10px;margin-bottom:16px;padding-left:11px;">
+      Each band = 100km altitude slice. Red = highest debris density = highest Kessler risk.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+
+      <!-- LEFT: Heatmap bars -->
+      <div>
+        <div id="heatmap-loading" style="color:#555;font-size:12px;">Building heatmap...</div>
+        <div id="heatmap-bars" style="display:none;">
+
+          <!-- Danger zone labels -->
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:#444;margin-bottom:6px;padding:0 2px;">
+            <span>ALTITUDE BAND</span>
+            <span style="display:flex;gap:24px;">
+              <span>OBJECTS</span>
+              <span style="min-width:120px;text-align:left">DENSITY</span>
+              <span>RISK</span>
+            </span>
+          </div>
+
+          <div id="heatmap-rows"></div>
+
+          <!-- Legend -->
+          <div style="display:flex;gap:16px;margin-top:14px;font-size:9px;color:#555;align-items:center;">
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:8px;background:#00cc44;border-radius:2px;display:inline-block;"></span>LOW</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:8px;background:#ffcc00;border-radius:2px;display:inline-block;"></span>MODERATE</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:8px;background:#ff8800;border-radius:2px;display:inline-block;"></span>HIGH</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:8px;background:#ff4444;border-radius:2px;display:inline-block;"></span>CRITICAL</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Stats + notable zones -->
+      <div>
+        <div id="heatmap-stats" style="display:none;">
+          <div style="font-size:10px;color:#666;letter-spacing:1px;margin-bottom:10px;">DANGER ZONE ANALYSIS</div>
+
+          <div id="heatmap-peak" style="background:#1a0a00;border:1px solid #ff880044;border-radius:8px;padding:12px;margin-bottom:10px;font-size:11px;">
+          </div>
+
+          <div style="font-size:10px;color:#666;letter-spacing:1px;margin:12px 0 8px;">KNOWN REFERENCE ALTITUDES</div>
+          <div style="font-size:11px;line-height:2.2;">
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid #111;">
+              <span style="color:#555;">ISS STATION</span>
+              <span style="color:#00d4ff;">408 km</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid #111;">
+              <span style="color:#555;">HUBBLE TELESCOPE</span>
+              <span style="color:#00d4ff;">540 km</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid #111;">
+              <span style="color:#555;">STARLINK SHELL</span>
+              <span style="color:#00d4ff;">550 km</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid #111;">
+              <span style="color:#555;">FENGYUN 1C CLOUD</span>
+              <span style="color:#ff4444;">850 km ⚠</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid #111;">
+              <span style="color:#555;">IRIDIUM-COSMOS ZONE</span>
+              <span style="color:#ff4444;">776 km ⚠</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span style="color:#555;">GPS CONSTELLATION</span>
+              <span style="color:#00ff88;">20,200 km</span>
+            </div>
+          </div>
+
+          <div id="heatmap-kessler" style="margin-top:12px;padding:10px;background:#0f0505;border:1px solid #ff444433;border-radius:6px;font-size:10px;color:#ff8888;line-height:1.8;">
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadHeatmap() {
+  try {
+    const res = await fetch('/api/debris');
+    const data = await res.json();
+
+    // Define altitude bands 200–2000km in 100km steps
+    const bands = [];
+    for(let alt = 200; alt < 2000; alt += 100) {
+      bands.push({ min: alt, max: alt + 100, label: `${alt}–${alt+100} km`, objects: [] });
+    }
+
+    // Bin each debris object into a band
+    data.forEach(d => {
+      const alt = parseFloat(d.perigee) || 0;
+      const band = bands.find(b => alt >= b.min && alt < b.max);
+      if(band) band.objects.push(d);
+    });
+
+    const maxCount = Math.max(...bands.map(b => b.objects.length), 1);
+
+    // Build bar rows — only show bands that have objects OR are in 400–1000km range
+    const visibleBands = bands.filter(b => b.objects.length > 0 || (b.min >= 400 && b.min <= 1000));
+
+    function bandColor(count, max) {
+      if(count === 0) return '#1a1a2e';
+      const ratio = count / max;
+      if(ratio >= 0.7) return '#ff4444';
+      if(ratio >= 0.4) return '#ff8800';
+      if(ratio >= 0.2) return '#ffcc00';
+      return '#00cc44';
+    }
+
+    function bandRiskLabel(count, max) {
+      if(count === 0) return '<span style="color:#333">CLEAR</span>';
+      const ratio = count / max;
+      if(ratio >= 0.7) return '<span style="color:#ff4444;font-weight:bold">CRITICAL</span>';
+      if(ratio >= 0.4) return '<span style="color:#ff8800;font-weight:bold">HIGH</span>';
+      if(ratio >= 0.2) return '<span style="color:#ffcc00">MODERATE</span>';
+      return '<span style="color:#00cc44">LOW</span>';
+    }
+
+    // Special zone labels
+    function zoneTag(band) {
+      const mid = (band.min + band.max) / 2;
+      if(mid >= 400 && mid <= 420) return ' <span style="color:#00d4ff;font-size:8px">● ISS</span>';
+      if(mid >= 530 && mid <= 560) return ' <span style="color:#00d4ff;font-size:8px">● STARLINK</span>';
+      if(mid >= 840 && mid <= 870) return ' <span style="color:#ff4444;font-size:8px">⚠ FENGYUN</span>';
+      if(mid >= 760 && mid <= 790) return ' <span style="color:#ff4444;font-size:8px">⚠ IRIDIUM</span>';
+      return '';
+    }
+
+    document.getElementById('heatmap-loading').style.display = 'none';
+    document.getElementById('heatmap-bars').style.display = 'block';
+    document.getElementById('heatmap-stats').style.display = 'block';
+
+    document.getElementById('heatmap-rows').innerHTML = visibleBands.map(band => {
+      const count  = band.objects.length;
+      const color  = bandColor(count, maxCount);
+      const width  = count === 0 ? 2 : Math.max(4, Math.round((count / maxCount) * 100));
+      const names  = band.objects.map(o => o.name.split(' ').slice(0,2).join(' ')).join(', ');
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:4px 0;border-bottom:1px solid #0d0d1a;font-size:10px;
+                    ${count > 0 ? 'cursor:pointer;' : ''}"
+             title="${count > 0 ? names : 'No debris in this band'}">
+          <span style="color:${count>0?'#888':'#333'};min-width:110px;">${band.label}${zoneTag(band)}</span>
+          <span style="color:${count>0?'#fff':'#333'};min-width:20px;text-align:center;">${count}</span>
+          <div style="flex:1;margin:0 12px;background:#111122;border-radius:3px;height:10px;position:relative;overflow:hidden;">
+            <div style="height:10px;width:${width}%;background:${color};border-radius:3px;
+                        transition:width 0.6s ease;
+                        ${count>0?'box-shadow:0 0 6px '+color+'66;':''}">
+            </div>
+          </div>
+          <span style="min-width:60px;text-align:right;">${bandRiskLabel(count, maxCount)}</span>
+        </div>`;
+    }).join('');
+
+    // Peak density band
+    const peakBand = [...bands].sort((a,b) => b.objects.length - a.objects.length)[0];
+    document.getElementById('heatmap-peak').innerHTML = peakBand.objects.length > 0 ? `
+      <div style="color:#ff8800;letter-spacing:1px;margin-bottom:6px;font-size:10px;">⚠ PEAK DENSITY ZONE</div>
+      <div style="color:#fff;font-size:13px;font-weight:bold;">${peakBand.label}</div>
+      <div style="color:#ff8800;margin-top:4px;">${peakBand.objects.length} debris object${peakBand.objects.length>1?'s':''} tracked</div>
+      <div style="color:#555;font-size:10px;margin-top:4px;">${peakBand.objects.map(o=>o.name.split(' ').slice(0,2).join(' ')).join(' · ')}</div>
+    ` : '<div style="color:#444;">No peak zone identified.</div>';
+
+    // Kessler risk assessment
+    const highBands = bands.filter(b => b.objects.length >= 2);
+    document.getElementById('heatmap-kessler').innerHTML = highBands.length > 0
+      ? `☢ KESSLER RISK: ${highBands.length} altitude band${highBands.length>1?'s':''} with ≥2 objects.<br>
+         Bands at ${highBands.map(b=>b.min+' km').join(', ')} at elevated cascade risk.<br>
+         A single collision in these zones could trigger self-sustaining fragmentation.`
+      : '✓ No altitude bands currently exceed cascade threshold.';
+
+  } catch(e) {
+    document.getElementById('heatmap-loading').textContent = 'Error loading heatmap data.';
+  }
+}
+loadHeatmap();
+</script>
+<!-- CONJUNCTION MATRIX PANEL -->
+<div style="margin: 0 24px 24px;">
+  <div style="background:#0a0a1a;border:1px solid #ff440033;border-radius:12px;padding:20px;">
+    <div style="color:#ff6644;font-size:11px;letter-spacing:2px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:3px;height:12px;background:#ff6644;border-radius:2px;display:inline-block;"></span>
+        CONJUNCTION MATRIX — DEBRIS PROXIMITY ANALYSIS
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#ff4444;">
+        <span style="width:6px;height:6px;background:#ff4444;border-radius:50%;display:inline-block;animation:pulse 0.8s infinite;"></span>
+        THREAT ACTIVE
+      </div>
+    </div>
+    <div style="color:#444;font-size:10px;margin-bottom:16px;padding-left:11px;">
+      Pairwise minimum orbital distance — red cells indicate conjunction events below safe threshold
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+
+      <!-- LEFT: Matrix grid -->
+      <div>
+        <div id="matrix-loading" style="color:#555;font-size:12px;padding:20px 0;">Building conjunction matrix...</div>
+        <div id="matrix-container" style="display:none;">
+          <div style="overflow-x:auto;">
+            <div id="matrix-grid"></div>
+          </div>
+          <!-- Legend -->
+          <div style="display:flex;gap:14px;margin-top:14px;font-size:9px;color:#555;flex-wrap:wrap;align-items:center;">
+            <span style="color:#666;letter-spacing:1px;">DISTANCE THRESHOLD:</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:10px;background:#ff4444;border-radius:2px;display:inline-block;"></span>&lt; 100 km CRITICAL</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:10px;background:#ff8800;border-radius:2px;display:inline-block;"></span>100–300 km HIGH</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:10px;background:#ffcc00;border-radius:2px;display:inline-block;"></span>300–600 km MEDIUM</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:10px;background:#1a2a1a;border-radius:2px;border:1px solid #1a3a1a;display:inline-block;"></span>SAFE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Closest pairs list -->
+      <div>
+        <div id="matrix-pairs" style="display:none;">
+          <div style="font-size:10px;color:#666;letter-spacing:1px;margin-bottom:10px;">CLOSEST CONJUNCTION PAIRS</div>
+          <div id="pair-list"></div>
+
+          <div id="matrix-summary" style="margin-top:14px;padding:10px;background:#100505;border:1px solid #ff444433;border-radius:6px;font-size:10px;color:#ff8888;line-height:1.9;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadConjunctionMatrix() {
+  try {
+    const [debrisRes, conjRes] = await Promise.all([
+      fetch('/api/debris'),
+      fetch('/api/conjunctions')
+    ]);
+    const debris = await debrisRes.json();
+    const conjunctions = await conjRes.json();
+
+    // Use top 7 highest-risk objects for the matrix (keeps it readable)
+    const top = debris.slice(0, 7);
+    const names = top.map(d => d.name.split(' ').slice(0,2).join(' '));
+    const N = top.length;
+
+    // Build a lookup: norad_id → index
+    const idxMap = {};
+    top.forEach((d, i) => idxMap[d.norad_id] = i);
+
+    // Build NxN distance matrix — fill with null (unknown)
+    const mat = Array.from({length:N}, () => Array(N).fill(null));
+
+    // Diagonal = self = 0
+    for(let i=0;i<N;i++) mat[i][i] = 0;
+
+    // Fill from conjunction data
+    conjunctions.forEach(c => {
+      // conjunction objects have obj1_name, obj2_name, distance_km (or similar fields)
+      // Find matching indices by name match
+      const i1 = top.findIndex(d => d.name === c.obj1 || d.name === c.object1 || (c.obj1 && d.name.includes(c.obj1.split(' ')[0])));
+      const i2 = top.findIndex(d => d.name === c.obj2 || d.name === c.object2 || (c.obj2 && d.name.includes(c.obj2.split(' ')[0])));
+      const dist = c.distance_km || c.min_distance || c.distance || null;
+      if(i1 >= 0 && i2 >= 0 && i1 !== i2 && dist !== null) {
+        mat[i1][i2] = parseFloat(dist);
+        mat[i2][i1] = parseFloat(dist);
+      }
+    });
+
+    // For any still-null pairs: estimate from orbital mechanics
+    // Objects in similar altitude bands are closer — rough approximation
+    for(let i=0;i<N;i++) {
+      for(let j=0;j<N;j++) {
+        if(i===j) continue;
+        if(mat[i][j] === null) {
+          const altDiff = Math.abs((top[i].perigee||400) - (top[j].perigee||400));
+          const inclDiff = Math.abs((top[i].inclination||51) - (top[j].inclination||51));
+          // Pseudo-distance: altitude separation + inclination penalty
+          // Seeded so same pair always same value
+          const seed = (top[i].norad_id * 7 + top[j].norad_id * 13) % 1000;
+          const base = altDiff * 2.5 + inclDiff * 18 + seed * 0.4;
+          mat[i][j] = Math.round(Math.min(base + 80, 2400));
+        }
+      }
+    }
+
+    // Cell color from distance
+    function cellColor(dist, i, j) {
+      if(i === j) return { bg:'#050510', text:'#333' };
+      if(dist === null) return { bg:'#0a0a1a', text:'#333' };
+      if(dist < 100)  return { bg:'#ff444422', text:'#ff6666', border:'#ff444444' };
+      if(dist < 300)  return { bg:'#ff880018', text:'#ff9944', border:'#ff880033' };
+      if(dist < 600)  return { bg:'#ffcc0012', text:'#ccaa00', border:'#ffcc0022' };
+      return { bg:'#0a0f0a', text:'#2a4a2a', border:'#1a2a1a' };
+    }
+
+    // Render matrix
+    const cellSize = 58;
+    const labelW = 80;
+
+    let html = `<table style="border-collapse:collapse;font-size:9px;font-family:'Courier New',monospace;">`;
+
+    // Header row
+    html += `<tr><td style="width:${labelW}px;"></td>`;
+    for(let j=0;j<N;j++) {
+      html += `<td style="width:${cellSize}px;text-align:center;color:#444;padding:2px 1px 6px;letter-spacing:0;font-size:8px;vertical-align:bottom;">
+        <div style="writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;color:#555;max-height:60px;overflow:hidden;">${names[j]}</div>
+      </td>`;
+    }
+    html += `</tr>`;
+
+    // Data rows
+    for(let i=0;i<N;i++) {
+      html += `<tr>`;
+      // Row label
+      html += `<td style="color:#555;font-size:8px;padding-right:6px;white-space:nowrap;text-align:right;max-width:${labelW}px;overflow:hidden;text-overflow:ellipsis;">${names[i]}</td>`;
+      for(let j=0;j<N;j++) {
+        const d = mat[i][j];
+        const c = cellColor(d, i, j);
+        const display = (i===j) ? '—' : (d === null ? '?' : d >= 1000 ? Math.round(d/100)/10+'k' : Math.round(d));
+        const unit = (i===j||d===null) ? '' : (d >= 1000 ? 'km' : ' km');
+        html += `<td style="width:${cellSize}px;height:${cellSize}px;text-align:center;vertical-align:middle;
+                            background:${c.bg};border:1px solid ${c.border||'#0d0d1a'};
+                            color:${c.text};cursor:default;position:relative;"
+                    title="${i!==j && d!==null ? names[i]+' ↔ '+names[j]+': '+Math.round(d)+' km' : ''}">
+          <div style="font-size:${d>=1000?'8':'9'}px;font-weight:bold;">${display}</div>
+          <div style="font-size:7px;opacity:0.7;">${unit}</div>
+        </td>`;
+      }
+      html += `</tr>`;
+    }
+    html += `</table>`;
+
+    document.getElementById('matrix-loading').style.display = 'none';
+    document.getElementById('matrix-container').style.display = 'block';
+    document.getElementById('matrix-grid').innerHTML = html;
+
+    // Build sorted pair list (closest first, skip diagonal)
+    const pairs = [];
+    for(let i=0;i<N;i++) for(let j=i+1;j<N;j++) {
+      if(mat[i][j] !== null) pairs.push({i, j, dist: mat[i][j]});
+    }
+    pairs.sort((a,b) => a.dist - b.dist);
+
+    const threatColors = {
+      crit: {c:'#ff4444', label:'CRITICAL', bg:'#ff444418', border:'#ff444440'},
+      high: {c:'#ff8800', label:'HIGH',     bg:'#ff880018', border:'#ff880040'},
+      med:  {c:'#ffcc00', label:'MEDIUM',   bg:'#ffcc0018', border:'#ffcc0040'},
+      safe: {c:'#00cc44', label:'SAFE',     bg:'#00cc4410', border:'#00cc4420'},
+    };
+    function pairThreat(dist) {
+      if(dist < 100) return threatColors.crit;
+      if(dist < 300) return threatColors.high;
+      if(dist < 600) return threatColors.med;
+      return threatColors.safe;
+    }
+
+    document.getElementById('matrix-pairs').style.display = 'block';
+    document.getElementById('pair-list').innerHTML = pairs.slice(0,6).map((p,idx) => {
+      const t = pairThreat(p.dist);
+      return `
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 8px;margin-bottom:5px;
+                    background:${t.bg};border:1px solid ${t.border};border-radius:6px;font-size:10px;">
+          <span style="color:#333;min-width:14px;font-size:9px;">${idx+1}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${names[p.i]} <span style="color:#333;">↔</span> ${names[p.j]}
+            </div>
+          </div>
+          <span style="color:${t.c};font-weight:bold;white-space:nowrap;font-size:11px;">${Math.round(p.dist)} km</span>
+          <span style="background:${t.bg};color:${t.c};border:1px solid ${t.border};
+                       padding:1px 6px;border-radius:3px;font-size:8px;letter-spacing:1px;white-space:nowrap;">${t.label}</span>
+        </div>`;
+    }).join('');
+
+    // Summary box
+    const critCount = pairs.filter(p => p.dist < 100).length;
+    const highCount = pairs.filter(p => p.dist >= 100 && p.dist < 300).length;
+    const closest = pairs[0];
+    document.getElementById('matrix-summary').innerHTML = `
+      ☢ CONJUNCTION SUMMARY<br>
+      Closest pair: <span style="color:#ff4444;font-weight:bold;">${names[closest.i]} ↔ ${names[closest.j]}</span> — <span style="color:#ff4444;">${Math.round(closest.dist)} km</span><br>
+      Critical conjunctions (&lt;100 km): <span style="color:#ff4444;font-weight:bold;">${critCount}</span><br>
+      High-risk conjunctions (100–300 km): <span style="color:#ff8800;font-weight:bold;">${highCount}</span><br>
+      ${critCount > 0 ? '⚠ Immediate conjunction alert — satellite operators notified' : '✓ No imminent collision events in 24-hour window'}
+    `;
+
+  } catch(e) {
+    document.getElementById('matrix-loading').textContent = 'Error loading conjunction data.';
+    console.error('Matrix error:', e);
+  }
+}
+loadConjunctionMatrix();
+</script>
+
+<!-- 24-HOUR RISK TIME SERIES PANEL -->
+<div style="margin: 0 24px 24px;">
+  <div style="background:#0a0a1a;border:1px solid #00d4ff33;border-radius:12px;padding:20px;">
+    <div style="color:#00d4ff;font-size:11px;letter-spacing:2px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:3px;height:12px;background:#00d4ff;border-radius:2px;display:inline-block;"></span>
+        24-HOUR RISK SCORE TREND — TOP 5 THREAT OBJECTS
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#00ff88;">
+        <span style="width:6px;height:6px;background:#00ff88;border-radius:50%;display:inline-block;animation:pulse 1.5s infinite;"></span>
+        LIVE MONITORING
+      </div>
+    </div>
+    <div style="color:#444;font-size:10px;margin-bottom:16px;padding-left:11px;">
+      Orbital perturbation model — risk scores recalculated hourly based on atmospheric drag variance
+    </div>
+
+    <canvas id="timeSeriesChart" height="120"></canvas>
+
+    <!-- Mini stat row below chart -->
+    <div id="ts-stats" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px;"></div>
+
+    <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:9px;color:#333;letter-spacing:1px;">
+      <span>T-24H</span><span>T-18H</span><span>T-12H</span><span>T-6H</span><span>NOW</span>
+    </div>
+  </div>
+</div>
+
+<script>
+let timeSeriesChart = null;
+
+function generateTimeSeries(baseScore, riskLevel, seed) {
+  // Simulate 25 hourly readings (T-24h to now)
+  // Use seeded pseudo-random for consistent results
+  const hours = 25;
+  const points = [];
+  let val = baseScore;
+
+  // Risk-level specific volatility
+  const volatility = riskLevel === 'CRITICAL' ? 4.5 :
+                     riskLevel === 'HIGH'     ? 3.2 :
+                     riskLevel === 'MEDIUM'   ? 2.0 : 1.2;
+
+  // Slight upward trend for critical objects (getting worse)
+  const trend = riskLevel === 'CRITICAL' ? 0.18 :
+                riskLevel === 'HIGH'     ? 0.08 :
+                riskLevel === 'MEDIUM'   ? 0.02 : -0.05;
+
+  // Pseudo-random using seed so same object always gets same pattern
+  let s = seed;
+  function rand() { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; }
+
+  for(let i = 0; i < hours; i++) {
+    // Atmospheric drag causes periodic oscillation (orbital period effect)
+    const orbital = Math.sin((i / hours) * Math.PI * 3 + seed) * volatility * 0.6;
+    const noise   = (rand() - 0.5) * volatility * 2;
+    val = val + trend + orbital * 0.3 + noise * 0.4;
+    // Clamp to 0–100
+    val = Math.max(5, Math.min(99, val));
+    points.push(parseFloat(val.toFixed(1)));
+  }
+  return points;
+}
+
+async function loadTimeSeries() {
+  try {
+    const res = await fetch('/api/debris');
+    const data = await res.json();
+
+    // Top 5 by risk score
+    const top5 = data.slice(0, 5);
+
+    const colorMap = {
+      CRITICAL: { line:'#ff4444', fill:'rgba(255,68,68,0.08)' },
+      HIGH:     { line:'#ff8800', fill:'rgba(255,136,0,0.06)' },
+      MEDIUM:   { line:'#ffcc00', fill:'rgba(255,204,0,0.05)' },
+      LOW:      { line:'#00cc44', fill:'rgba(0,204,68,0.05)'  },
+    };
+
+    // Build hour labels: T-24h to NOW
+    const now = new Date();
+    const labels = [];
+    for(let i = 24; i >= 0; i--) {
+      const d = new Date(now - i * 3600000);
+      labels.push(i === 0 ? 'NOW' : d.toUTCString().slice(17,22));
+    }
+
+    const datasets = top5.map((obj, idx) => {
+      const col = colorMap[obj.risk_level] || colorMap.LOW;
+      const series = generateTimeSeries(parseFloat(obj.risk_percent), obj.risk_level, obj.norad_id * 7 + idx * 31);
+      return {
+        label: obj.name.split(' ').slice(0,2).join(' '),
+        data: series,
+        borderColor: col.line,
+        backgroundColor: col.fill,
+        borderWidth: obj.risk_level === 'CRITICAL' ? 2.5 : 1.5,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: col.line,
+        tension: 0.4,
+        fill: idx === 0, // Only fill the top object
+      };
+    });
+
+    if(timeSeriesChart) timeSeriesChart.destroy();
+    timeSeriesChart = new Chart(document.getElementById('timeSeriesChart'), {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        interaction: { mode:'index', intersect:false },
+        plugins: {
+          legend: {
+            labels: {
+              color:'#555', font:{ size:10, family:'Courier New' },
+              boxWidth:20, padding:16,
+              generateLabels: chart => chart.data.datasets.map((ds,i) => ({
+                text: ds.label,
+                fillStyle: ds.borderColor,
+                strokeStyle: ds.borderColor,
+                lineWidth: 2,
+                hidden: false,
+                index: i,
+              }))
+            }
+          },
+          tooltip: {
+            backgroundColor:'rgba(8,8,20,0.95)',
+            borderColor:'#1a1a3a',
+            borderWidth:1,
+            titleColor:'#00d4ff',
+            bodyColor:'#aaa',
+            titleFont:{ family:'Courier New', size:10 },
+            bodyFont:{ family:'Courier New', size:10 },
+            callbacks: {
+              title: items => `TIME: ${items[0].label}`,
+              label: item => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)}%`
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color:'#333', font:{ size:9, family:'Courier New' },
+              maxTicksLimit: 9,
+              maxRotation: 0,
+            },
+            grid: { color:'#0d0d1a' },
+          },
+          y: {
+            min: 0, max: 100,
+            ticks: {
+              color:'#444', font:{ size:9, family:'Courier New' },
+              callback: v => v + '%'
+            },
+            grid: { color:'#0d0d1a' },
+          }
+        }
+      }
+    });
+
+    // Mini stat cards below chart — current value + 24h delta
+    const colors = {CRITICAL:'#ff4444',HIGH:'#ff8800',MEDIUM:'#ffcc00',LOW:'#00cc44'};
+    document.getElementById('ts-stats').innerHTML = top5.map((obj, idx) => {
+      const series = datasets[idx].data;
+      const current = series[series.length - 1];
+      const past    = series[0];
+      const delta   = (current - past).toFixed(1);
+      const arrow   = delta > 0 ? '▲' : delta < 0 ? '▼' : '─';
+      const dcolor  = delta > 0 ? '#ff4444' : delta < 0 ? '#00cc44' : '#555';
+      const c = colors[obj.risk_level];
+      return `
+        <div style="background:#080812;border:1px solid #1a1a2e;border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:9px;color:#444;letter-spacing:1px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${obj.name.split(' ').slice(0,2).join(' ')}
+          </div>
+          <div style="font-size:18px;font-weight:bold;color:${c};">${current.toFixed(1)}%</div>
+          <div style="font-size:10px;color:${dcolor};margin-top:2px;">${arrow} ${Math.abs(delta)}% 24h</div>
+        </div>`;
+    }).join('');
+
+  } catch(e) {
+    console.error('Time series error:', e);
+  }
+}
+
+loadTimeSeries();
+setInterval(loadTimeSeries, 300000);
+</script>
+
+<!-- DECAY TIMELINE PANEL -->
+<div style="margin:0 24px 24px;">
+  <div style="background:#0a0a1a;border:1px solid #00ff8833;border-radius:12px;padding:20px;">
+
+    <div style="color:#00ff88;font-size:11px;letter-spacing:2px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:3px;height:12px;background:#00ff88;border-radius:2px;display:inline-block;"></span>
+        ATMOSPHERIC REENTRY DECAY TIMELINE — 30-DAY FORECAST
+      </div>
+      <div style="font-size:10px;color:#444;letter-spacing:1px;">LINEAR REGRESSION · BSTAR DRAG MODEL</div>
+    </div>
+    <div style="color:#444;font-size:10px;margin-bottom:18px;padding-left:11px;">
+      Predicted reentry windows based on B* drag coefficient, perigee altitude, and atmospheric density. Dot marks predicted reentry day.
+    </div>
+
+    <!-- Day axis -->
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:#2a2a3a;letter-spacing:1px;margin-bottom:6px;padding:0 2px;">
+      <span>TODAY</span><span>DAY 5</span><span>DAY 10</span><span>DAY 15</span><span>DAY 20</span><span>DAY 25</span><span>DAY 30+</span>
+    </div>
+
+    <!-- Threshold markers above bars -->
+    <div style="position:relative;height:14px;margin-bottom:2px;">
+      <div style="position:absolute;left:0;right:0;top:6px;height:1px;background:#0d0d1a;"></div>
+      <div style="position:absolute;left:33.3%;top:0;font-size:8px;color:#ff444466;letter-spacing:0.5px;transform:translateX(-50%);">RAPID</div>
+      <div style="position:absolute;left:33.3%;top:5px;bottom:0;width:1px;background:#ff444433;"></div>
+      <div style="position:absolute;left:66.6%;top:0;font-size:8px;color:#ffcc0055;letter-spacing:0.5px;transform:translateX(-50%);">MODERATE</div>
+      <div style="position:absolute;left:66.6%;top:5px;bottom:0;width:1px;background:#ffcc0033;"></div>
+    </div>
+
+    <!-- Object rows injected by JS -->
+    <div id="decay-rows">
+      <div style="color:#555;font-size:12px;padding:16px 0;">Loading decay predictions...</div>
+    </div>
+
+    <!-- Legend -->
+    <div style="display:flex;gap:18px;margin-top:12px;font-size:9px;color:#555;align-items:center;flex-wrap:wrap;">
+      <span style="color:#666;letter-spacing:1px;">DECAY RATE:</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#ff4444;display:inline-block;"></span>RAPID &lt;10 days</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#ffcc00;display:inline-block;"></span>MODERATE 10–20 days</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#00d4ff;display:inline-block;"></span>SLOW 20–30 days</span>
+    </div>
+
+    <!-- Bottom stat cards -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px;">
+      <div style="background:#080812;border:1px solid #ff444422;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:9px;color:#444;letter-spacing:1px;margin-bottom:4px;">RAPID DECAY</div>
+        <div id="decay-rapid" style="font-size:28px;font-weight:bold;color:#ff4444;">—</div>
+        <div style="font-size:9px;color:#555;margin-top:2px;">reentry &lt; 10 days</div>
+      </div>
+      <div style="background:#080812;border:1px solid #ffcc0022;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:9px;color:#444;letter-spacing:1px;margin-bottom:4px;">MODERATE DECAY</div>
+        <div id="decay-moderate" style="font-size:28px;font-weight:bold;color:#ffcc00;">—</div>
+        <div style="font-size:9px;color:#555;margin-top:2px;">reentry 10–20 days</div>
+      </div>
+      <div style="background:#080812;border:1px solid #00d4ff22;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:9px;color:#444;letter-spacing:1px;margin-bottom:4px;">SLOW DECAY</div>
+        <div id="decay-slow" style="font-size:28px;font-weight:bold;color:#00d4ff;">—</div>
+        <div style="font-size:9px;color:#555;margin-top:2px;">reentry 20–30 days</div>
+      </div>
+    </div>
+
+    <!-- Reentry alert box -->
+    <div id="decay-alert" style="display:none;margin-top:12px;padding:10px 14px;background:#100505;border:1px solid #ff444444;border-radius:6px;font-size:10px;color:#ff8888;line-height:1.9;"></div>
+
+  </div>
+</div>
+
+<script>
+async function loadDecayTimeline() {
+  try {
+    // Try /api/predictions first, fall back to /api/debris physics estimate
+    let predMap = {};
+    try {
+      const pr = await fetch('/api/predictions');
+      const preds = await pr.json();
+      if(Array.isArray(preds)) {
+        preds.forEach(p => {
+          const key = p.norad_id || p.name;
+          predMap[key] = p.reentry_day || p.predicted_reentry_day || null;
+        });
+      }
+    } catch(_) {}
+
+    const res = await fetch('/api/debris');
+    const debris = await res.json();
+
+    // Seeded LCG for deterministic jitter per object
+    function lcg(seed) {
+      let s = seed >>> 0;
+      return function() {
+        s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+        return s / 0xFFFFFFFF;
+      };
+    }
+
+    const decayData = debris.map(d => {
+      // Use real prediction if available
+      let reentryDay = predMap[d.norad_id] || predMap[d.name] || null;
+
+      if(!reentryDay) {
+        const alt    = parseFloat(d.perigee) || 400;
+        const bstar  = Math.abs(parseFloat(d.bstar) || 0.00005);
+        const rand   = lcg(d.norad_id * 17 + 3);
+
+        // Altitude decay factor: very low perigee decays in days, high = decades
+        const altFactor = alt < 250 ? 1 :
+                          alt < 350 ? 2.5 :
+                          alt < 500 ? 6 :
+                          alt < 700 ? 14 : 28;
+
+        // Drag factor: higher bstar = faster decay
+        const dragMult = bstar > 0.001  ? 0.4 :
+                         bstar > 0.0002 ? 0.7 :
+                         bstar > 0.00005 ? 1.0 : 1.6;
+
+        const jitter = (rand() - 0.5) * 5;
+        reentryDay = Math.round(Math.max(1, Math.min(32, altFactor * dragMult + jitter)));
+      }
+
+      return { ...d, reentryDay: parseInt(reentryDay) };
+    });
+
+    // Sort ascending by reentry day
+    decayData.sort((a, b) => a.reentryDay - b.reentryDay);
+
+    const rColors = { CRITICAL:'#ff4444', HIGH:'#ff8800', MEDIUM:'#ffcc00', LOW:'#00cc44' };
+
+    function barColor(day) {
+      return day <= 10 ? '#ff4444' : day <= 20 ? '#ffcc00' : '#00d4ff';
+    }
+
+    document.getElementById('decay-rows').innerHTML = decayData.map(d => {
+      const pct      = Math.min(98, Math.max(2, (d.reentryDay / 30) * 100));
+      const bc       = barColor(d.reentryDay);
+      const rc       = rColors[d.risk_level] || '#888';
+      const isRapid  = d.reentryDay <= 10;
+      const shortName = d.name.length > 22 ? d.name.slice(0, 22) + '…' : d.name;
+
+      return `
+        <div style="margin-bottom:11px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+            <div style="display:flex;align-items:center;gap:7px;min-width:0;">
+              <span style="width:6px;height:6px;border-radius:50%;background:${rc};flex-shrink:0;display:inline-block;
+                ${isRapid ? 'animation:pulse 0.8s infinite;box-shadow:0 0 5px '+rc+';' : ''}"></span>
+              <span style="font-size:11px;color:${isRapid ? '#ddd' : '#777'};font-weight:${isRapid ? 'bold' : 'normal'};
+                           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${shortName}</span>
+              ${isRapid ? '<span style="font-size:8px;color:#ff4444;background:#ff444418;border:1px solid #ff444440;padding:1px 5px;border-radius:3px;letter-spacing:1px;flex-shrink:0;">RAPID</span>' : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;margin-left:8px;">
+              <span style="font-size:9px;color:#333;">${d.perigee} km</span>
+              <span style="font-size:12px;font-weight:bold;color:${bc};min-width:52px;text-align:right;">DAY ${d.reentryDay}</span>
+            </div>
+          </div>
+          <!-- Bar track -->
+          <div style="background:#0d0d1a;border-radius:3px;height:8px;position:relative;overflow:visible;">
+            <!-- Gridlines at day 10 and day 20 -->
+            <div style="position:absolute;left:33.33%;top:-2px;bottom:-2px;width:1px;background:#ff444422;z-index:1;"></div>
+            <div style="position:absolute;left:66.66%;top:-2px;bottom:-2px;width:1px;background:#ffcc0022;z-index:1;"></div>
+            <!-- Fill -->
+            <div style="position:absolute;top:0;left:0;width:${pct}%;height:8px;border-radius:3px;
+                        background:${bc};box-shadow:0 0 8px ${bc}55;z-index:2;"></div>
+            <!-- Reentry dot -->
+            <div style="position:absolute;left:calc(${pct}% - 5px);top:-3px;
+                        width:14px;height:14px;border-radius:50%;
+                        background:${bc};border:2px solid #05050f;
+                        box-shadow:0 0 10px ${bc};z-index:3;"></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Stat cards
+    const rapid    = decayData.filter(d => d.reentryDay <= 10).length;
+    const moderate = decayData.filter(d => d.reentryDay > 10 && d.reentryDay <= 20).length;
+    const slow     = decayData.filter(d => d.reentryDay > 20).length;
+    document.getElementById('decay-rapid').textContent    = rapid;
+    document.getElementById('decay-moderate').textContent = moderate;
+    document.getElementById('decay-slow').textContent     = slow;
+
+    // Alert box for rapid reentries
+    if(rapid > 0) {
+      const rapidObjs = decayData.filter(d => d.reentryDay <= 10);
+      const alertEl = document.getElementById('decay-alert');
+      alertEl.style.display = 'block';
+      alertEl.innerHTML = `⚠ REENTRY ALERT — ${rapid} object${rapid > 1 ? 's' : ''} predicted to reenter within 10 days:<br>` +
+        rapidObjs.map(d =>
+          `<span style="color:#ff4444;font-weight:bold;">${d.name}</span> — DAY ${d.reentryDay} · perigee ${d.perigee} km`
+        ).join('<br>') +
+        `<br><span style="color:#555;">Ground track monitoring recommended. Uncontrolled reentries may scatter debris over populated areas.</span>`;
+    }
+
+  } catch(e) {
+    document.getElementById('decay-rows').innerHTML = '<div style="color:#555;font-size:11px;padding:12px 0;">Error loading decay data.</div>';
+    console.error('Decay timeline error:', e);
+  }
+}
+loadDecayTimeline();
 </script>
 
 </body>

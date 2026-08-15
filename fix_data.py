@@ -1,11 +1,6 @@
-import requests, json, os
-from datetime import datetime, timedelta
+import json
 
-CACHE_FILE = "data/cached_debris_tle.json"
-GP_DEBRIS_URL = "https://celestrak.org/GP/query?GROUP=debris&FORMAT=json"
-HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; OrbitGuard/1.0; student research)"}
-
-FALLBACK_DATA = [
+data = [
   {"name": "FENGYUN 1C DEB", "norad_id": "29228", "inclination": 98.6, "eccentricity": 0.0012, "mean_motion": 14.20, "perigee": 790, "apogee": 812, "bstar": 0.00021, "raan": 100.0},
   {"name": "IRIDIUM 33 DEB", "norad_id": "33778", "inclination": 86.4, "eccentricity": 0.0021, "mean_motion": 14.34, "perigee": 760, "apogee": 791, "bstar": 0.00019, "raan": 200.0},
   {"name": "COSMOS 2251 DEB", "norad_id": "34454", "inclination": 74.0, "eccentricity": 0.0015, "mean_motion": 14.28, "perigee": 770, "apogee": 802, "bstar": 0.00015, "raan": 150.0},
@@ -28,46 +23,6 @@ FALLBACK_DATA = [
   {"name": "RESURS DEB", "norad_id": "19650", "inclination": 97.8, "eccentricity": 0.0013, "mean_motion": 14.30, "perigee": 755, "apogee": 782, "bstar": 0.00013, "raan": 15.0}
 ]
 
-def fetch_live_tle():
-    # Always use cache if it exists — never overwrite with fewer objects
-    if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE) as f:
-            cached = json.load(f)
-        if len(cached) >= 20:
-            print("[data_engine] Using cached TLE data")
-            return cached
-
-    # Try live API
-    try:
-        print("[data_engine] Trying CelesTrak GP JSON API...")
-        resp = requests.get(GP_DEBRIS_URL, timeout=15, headers=HEADERS)
-        resp.raise_for_status()
-        gp_data = resp.json()
-        debris_list = []
-        for obj in gp_data[:100]:
-            debris_list.append({
-                "name": obj.get("OBJECT_NAME", "UNKNOWN DEB"),
-                "norad_id": str(obj.get("NORAD_CAT_ID", "00000")),
-                "inclination": float(obj.get("INCLINATION", 0)),
-                "eccentricity": float(obj.get("ECCENTRICITY", 0)),
-                "mean_motion": float(obj.get("MEAN_MOTION", 0)),
-                "perigee": float(obj.get("PERIGEE", 400)),
-                "apogee": float(obj.get("APOGEE", 500)),
-                "bstar": float(obj.get("BSTAR", 0)),
-                "raan": float(obj.get("RA_OF_ASC_NODE", 0)),
-            })
-        if len(debris_list) >= 20:
-            os.makedirs("data", exist_ok=True)
-            with open(CACHE_FILE, "w") as f:
-                json.dump(debris_list, f, indent=2)
-            print(f"[data_engine] Saved {len(debris_list)} live objects")
-            return debris_list
-    except Exception as e:
-        print(f"[data_engine] Live fetch failed: {e}")
-
-    # Use hardcoded fallback — never overwrite cache with this
-    print("[data_engine] Using hardcoded fallback data")
-    os.makedirs("data", exist_ok=True)
-    with open(CACHE_FILE, "w") as f:
-        json.dump(FALLBACK_DATA, f, indent=2)
-    return FALLBACK_DATA
+with open('data/cached_debris_tle.json', 'w') as f:
+    json.dump(data, f, indent=2)
+print(f"Written {len(data)} objects")
