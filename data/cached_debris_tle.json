@@ -2,41 +2,35 @@
   {
     "name": "FENGYUN 1C DEB",
     "norad_id": "29228",
-    "inclination": 92,
-    "eccentricity": 0.001,
+    "inclination": 98.6,
+    "eccentricity": 0.0012,
     "mean_motion": 14.2,
-    "perigee": 600,
-    "apogee": 810,
-    "bstar": 0.0008,
-    "raan": 100.0,
-    "tle_line1": "",
-    "tle_line2": ""
+    "perigee": 790,
+    "apogee": 812,
+    "bstar": 0.00021,
+    "raan": 100.0
   },
   {
     "name": "IRIDIUM 33 DEB",
     "norad_id": "33778",
-    "inclination": 90,
-    "eccentricity": 0.002,
+    "inclination": 86.4,
+    "eccentricity": 0.0021,
     "mean_motion": 14.34,
-    "perigee": 580,
-    "apogee": 790,
-    "bstar": 0.0007,
-    "raan": 200.0,
-    "tle_line1": "",
-    "tle_line2": ""
+    "perigee": 760,
+    "apogee": 791,
+    "bstar": 0.00019,
+    "raan": 200.0
   },
   {
     "name": "COSMOS 2251 DEB",
     "norad_id": "34454",
-    "inclination": 95,
+    "inclination": 74.0,
     "eccentricity": 0.0015,
     "mean_motion": 14.28,
-    "perigee": 620,
-    "apogee": 800,
-    "bstar": 0.0006,
-    "raan": 150.0,
-    "tle_line1": "",
-    "tle_line2": ""
+    "perigee": 770,
+    "apogee": 802,
+    "bstar": 0.00015,
+    "raan": 150.0
   },
   {
     "name": "SL-16 R/B",
@@ -45,11 +39,9 @@
     "eccentricity": 0.0005,
     "mean_motion": 14.15,
     "perigee": 820,
-    "apogee": 840,
+    "apogee": 841,
     "bstar": 5e-05,
-    "raan": 180.0,
-    "tle_line1": "",
-    "tle_line2": ""
+    "raan": 180.0
   },
   {
     "name": "CZ-4B R/B",
@@ -58,37 +50,31 @@
     "eccentricity": 0.0008,
     "mean_motion": 14.22,
     "perigee": 780,
-    "apogee": 800,
+    "apogee": 801,
     "bstar": 8e-05,
-    "raan": 120.0,
-    "tle_line1": "",
-    "tle_line2": ""
+    "raan": 120.0
   },
   {
     "name": "BREEZE-M DEB",
     "norad_id": "39915",
     "inclination": 49.0,
-    "eccentricity": 0.003,
+    "eccentricity": 0.0031,
     "mean_motion": 13.9,
     "perigee": 400,
-    "apogee": 900,
-    "bstar": 0.0003,
-    "raan": 90.0,
-    "tle_line1": "",
-    "tle_line2": ""
+    "apogee": 901,
+    "bstar": 0.00031,
+    "raan": 90.0
   },
   {
     "name": "THOR AGENA DEB",
     "norad_id": "01642",
     "inclination": 99.1,
-    "eccentricity": 0.001,
+    "eccentricity": 0.0011,
     "mean_motion": 14.5,
     "perigee": 700,
-    "apogee": 720,
-    "bstar": 0.0001,
-    "raan": 45.0,
-    "tle_line1": "",
-    "tle_line2": ""
+    "apogee": 722,
+    "bstar": 0.00011,
+    "raan": 45.0
   },
   {
     "name": "DELTA 1 DEB",
@@ -97,10 +83,140 @@
     "eccentricity": 0.002,
     "mean_motion": 14.1,
     "perigee": 840,
-    "apogee": 870,
+    "apogee": 871,
     "bstar": 0.00012,
-    "raan": 270.0,
-    "tle_line1": "",
-    "tle_line2": ""
+    "raan": 270.0
+  },
+  {
+    "name": "COSMOS 954 DEB",
+    "norad_id": "10361",
+    "inclination": 65.0,
+    "eccentricity": 0.0018,
+    "mean_motion": 14.05,
+    "perigee": 850,
+    "apogee": 880,
+    "bstar": 0.00018,
+    "raan": 310.0
+  },
+  {
+    "name": "SL-8 R/B",
+    "norad_id": "14820",
+    "inclination": 74.1,
+    "eccentricity": 0.0009,
+    "mean_motion": 14.18,
+    "perigee": 800,
+    "apogee": 820,
+    "bstar": 9e-05,
+    "raan": 55.0
+  },
+  {
+    "name": "PEGASUS DEB",
+    "norad_id": "23106",
+    "inclination": 28.5,
+    "eccentricity": 0.0042,
+    "mean_motion": 15.1,
+    "perigee": 350,
+    "apogee": 650,
+    "bstar": 0.00042,
+    "raan": 160.0
+  },
+  {
+    "name": "STARSHINE 3 DEB",
+    "norad_id": "26929",
+    "inclination": 67.0,
+    "eccentricity": 0.0006,
+    "mean_motion": 14.6,
+    "perigee": 680,
+    "apogee": 700,
+    "bstar": 6e-05,
+    "raan": 220.0
+  },
+  {
+    "name": "COSMOS 1275 DEB",
+    "norad_id": "12607",
+    "inclination": 82.9,
+    "eccentricity": 0.0014,
+    "mean_motion": 14.25,
+    "perigee": 775,
+    "apogee": 805,
+    "bstar": 0.00014,
+    "raan": 333.0
+  },
+  {
+    "name": "ATLAS CENTAUR DEB",
+    "norad_id": "03173",
+    "inclination": 28.9,
+    "eccentricity": 0.0033,
+    "mean_motion": 13.75,
+    "perigee": 920,
+    "apogee": 980,
+    "bstar": 0.00033,
+    "raan": 77.0
+  },
+  {
+    "name": "SL-3 R/B",
+    "norad_id": "00733",
+    "inclination": 65.1,
+    "eccentricity": 0.0007,
+    "mean_motion": 14.35,
+    "perigee": 740,
+    "apogee": 762,
+    "bstar": 7e-05,
+    "raan": 195.0
+  },
+  {
+    "name": "COSMOS 3M R/B",
+    "norad_id": "32957",
+    "inclination": 83.0,
+    "eccentricity": 0.0016,
+    "mean_motion": 14.12,
+    "perigee": 830,
+    "apogee": 858,
+    "bstar": 0.00016,
+    "raan": 140.0
+  },
+  {
+    "name": "ARIANE 1 DEB",
+    "norad_id": "12378",
+    "inclination": 51.6,
+    "eccentricity": 0.0025,
+    "mean_motion": 14.0,
+    "perigee": 860,
+    "apogee": 900,
+    "bstar": 0.00025,
+    "raan": 85.0
+  },
+  {
+    "name": "TITAN 3C DEB",
+    "norad_id": "08744",
+    "inclination": 32.5,
+    "eccentricity": 0.0038,
+    "mean_motion": 13.8,
+    "perigee": 910,
+    "apogee": 970,
+    "bstar": 0.00038,
+    "raan": 250.0
+  },
+  {
+    "name": "LACROSSE 5 DEB",
+    "norad_id": "28646",
+    "inclination": 57.0,
+    "eccentricity": 0.0011,
+    "mean_motion": 14.4,
+    "perigee": 720,
+    "apogee": 745,
+    "bstar": 0.00011,
+    "raan": 300.0
+  },
+  {
+    "name": "RESURS DEB",
+    "norad_id": "19650",
+    "inclination": 97.8,
+    "eccentricity": 0.0013,
+    "mean_motion": 14.3,
+    "perigee": 755,
+    "apogee": 782,
+    "bstar": 0.00013,
+    "raan": 15.0
   }
 ]

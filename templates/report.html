@@ -110,5 +110,47 @@ async function loadReport() {
 }
 loadReport();
 </script>
+
+<div style="margin: 24px 16px;">
+  <div style="background:#0d0d1a; border:1px solid #00ff88; border-radius:12px; padding:20px;">
+    <h2 style="color:#00ff88; font-family:monospace; margin:0 0 8px 0;">&#129302; AI THREAT ASSESSMENT</h2>
+    <p style="color:#888; font-family:monospace; font-size:0.85rem; margin:0 0 16px 0;">Real-time AI analysis of top threat objects</p>
+    <div id="ai-report-cards">
+      <p style="color:#888; font-family:monospace;">&#9654; Generating AI threat reports... please wait 15 seconds</p>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadAIReports() {
+  try {
+    const res = await fetch('/api/ai_reports');
+    const data = await res.json();
+    const container = document.getElementById('ai-report-cards');
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p style="color:#ff003c;font-family:monospace;">No report data available.</p>';
+      return;
+    }
+    container.innerHTML = data.map(r => {
+      const color = r.risk_level === 'CRITICAL' ? '#ff003c' : r.risk_level === 'HIGH' ? '#ff8800' : '#ffcc00';
+      return `
+        <div style="background:#050510;border:1px solid ${color};border-radius:10px;padding:18px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="color:#fff;font-family:monospace;font-weight:bold;font-size:1rem;">${r.name}</span>
+            <div style="text-align:right;">
+              <span style="color:${color};font-family:monospace;font-weight:bold;">${r.risk_level}</span>
+              <span style="color:#888;font-family:monospace;font-size:0.85rem;margin-left:12px;">${r.altitude_km} km</span>
+            </div>
+          </div>
+          <p style="color:#ccc;font-family:monospace;font-size:0.88rem;line-height:1.7;margin:0;border-left:3px solid ${color};padding-left:12px;">${r.ai_report}</p>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    document.getElementById('ai-report-cards').innerHTML = '<p style="color:#ff003c;font-family:monospace;">Error: ' + e.message + '</p>';
+  }
+}
+loadAIReports();
+</script>
 </body>
 </html>

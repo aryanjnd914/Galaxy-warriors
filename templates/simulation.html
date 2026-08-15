@@ -4,204 +4,469 @@
 <meta charset="UTF-8">
 <title>ORBIT-GUARD | Orbital Simulation</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#0a0a0f; color:#e0e0e0; font-family:'Courier New',monospace; overflow:hidden; }
-  .topbar {
-    background:linear-gradient(90deg,#0d0d1a,#0a1628);
-    border-bottom:1px solid #00d4ff33;
-    padding:10px 24px;
-    display:flex; align-items:center; justify-content:space-between;
-  }
-  .logo { font-size:18px; font-weight:bold; color:#00d4ff; letter-spacing:3px; }
-  .logo span { color:#ff4444; }
-  .controls { display:flex; gap:12px; align-items:center; }
-  .btn {
-    background:#0d0d1a; border:1px solid #00d4ff44; color:#00d4ff;
-    padding:6px 14px; border-radius:6px; cursor:pointer;
-    font-family:'Courier New',monospace; font-size:11px; letter-spacing:1px;
-  }
-  .btn:hover { background:#00d4ff22; }
-  .btn.active { background:#00d4ff33; border-color:#00d4ff; }
-  .legend {
-    position:fixed; bottom:20px; left:20px;
-    background:#0d0d1acc; border:1px solid #1a1a3a;
-    border-radius:10px; padding:12px 16px; font-size:11px;
-  }
-  .legend-item { display:flex; align-items:center; gap:8px; margin:4px 0; }
-  .dot { width:10px; height:10px; border-radius:50%; }
-  .info-panel {
-    position:fixed; top:70px; right:20px;
-    background:#0d0d1acc; border:1px solid #1a1a3a;
-    border-radius:10px; padding:14px; font-size:11px; width:220px; line-height:1.8;
-  }
-  .info-panel h4 { color:#00d4ff; margin-bottom:8px; letter-spacing:2px; }
-  .back-btn {
-    background:#0d0d1a; border:1px solid #ff444444; color:#ff4444;
-    padding:6px 14px; border-radius:6px; cursor:pointer;
-    font-family:'Courier New',monospace; font-size:11px; text-decoration:none; display:inline-block;
-  }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#000; color:#e0e0e0; font-family:'Courier New',monospace; overflow:hidden; }
+.topbar {
+  background:rgba(5,5,20,0.95);
+  border-bottom:1px solid #00d4ff33;
+  padding:10px 24px;
+  display:flex; align-items:center; justify-content:space-between;
+  position:relative; z-index:10;
+  backdrop-filter:blur(10px);
+}
+.logo { font-size:18px; font-weight:bold; color:#00d4ff; letter-spacing:3px; }
+.logo span { color:#ff4444; }
+.controls { display:flex; gap:10px; align-items:center; }
+.btn {
+  background:rgba(13,13,26,0.8); border:1px solid #00d4ff44; color:#00d4ff;
+  padding:7px 16px; border-radius:6px; cursor:pointer;
+  font-family:'Courier New',monospace; font-size:11px; letter-spacing:1px;
+  transition:all 0.2s; backdrop-filter:blur(4px);
+}
+.btn:hover { background:#00d4ff22; border-color:#00d4ff88; }
+.btn.active { background:#00d4ff33; border-color:#00d4ff; box-shadow:0 0 12px #00d4ff44; }
+.btn-red { border-color:#ff444444; color:#ff4444; }
+.btn-red:hover { background:#ff444422; border-color:#ff4444; }
+.btn-green { border-color:#00ff8844; color:#00ff88; }
+.btn-green:hover { background:#00ff8822; border-color:#00ff88; }
+
+canvas { display:block; position:absolute; top:0; left:0; }
+#bgCanvas { z-index:0; }
+#mainCanvas { z-index:1; }
+
+.legend {
+  position:fixed; bottom:20px; left:20px; z-index:20;
+  background:rgba(8,8,20,0.85); border:1px solid #00d4ff22;
+  border-radius:12px; padding:14px 18px; font-size:11px;
+  backdrop-filter:blur(8px);
+}
+.legend-title { color:#00d4ff; font-size:10px; letter-spacing:2px; margin-bottom:10px; }
+.legend-item { display:flex; align-items:center; gap:10px; margin:6px 0; }
+.dot { width:10px; height:10px; border-radius:50%; }
+.dot-critical { background:#ff4444; box-shadow:0 0 6px #ff4444; }
+.dot-high     { background:#ff8800; box-shadow:0 0 6px #ff8800; }
+.dot-medium   { background:#ffcc00; box-shadow:0 0 4px #ffcc00; }
+.dot-low      { background:#00cc44; }
+.dot-craft    { background:#00d4ff; box-shadow:0 0 8px #00d4ff; }
+
+.info-panel {
+  position:fixed; top:60px; right:20px; z-index:20;
+  background:rgba(8,8,20,0.90); border:1px solid #00d4ff33;
+  border-radius:12px; padding:16px; font-size:11px; width:240px; line-height:2;
+  backdrop-filter:blur(8px);
+}
+.info-panel h4 { color:#00d4ff; margin-bottom:8px; letter-spacing:2px; font-size:11px; }
+.info-row { display:flex; justify-content:space-between; border-bottom:1px solid #0f0f20; padding:2px 0; }
+.info-key { color:#555; }
+.info-val { color:#ccc; font-weight:bold; }
+
+.stats-bar {
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:20;
+  background:rgba(8,8,20,0.85); border:1px solid #1a1a3a;
+  border-radius:8px; padding:8px 20px; font-size:11px; color:#444;
+  display:flex; gap:24px; backdrop-filter:blur(8px);
+}
+.stat-item { display:flex; gap:8px; align-items:center; }
+.stat-label { color:#333; letter-spacing:1px; }
+.stat-value { color:#00d4ff; font-weight:bold; }
+.stat-value.warn { color:#ff8800; }
+.stat-value.crit { color:#ff4444; }
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div class="logo">ORBIT<span>-</span>GUARD <span style="color:#666;font-size:13px;margin-left:12px">ORBITAL SIMULATION</span></div>
+<div class="topbar" style="position:fixed;top:0;left:0;right:0;z-index:100">
+  <div class="logo">ORBIT<span>-</span>GUARD <span style="color:#444;font-size:12px;margin-left:12px;letter-spacing:2px">ORBITAL SIMULATION</span></div>
   <div class="controls">
-    <button class="btn active" id="btn-sim" onclick="toggleSim()">⏸ PAUSE</button>
-    <button class="btn" id="btn-mission" onclick="toggleMission()">🚀 LAUNCH MISSION</button>
-    <a href="/" class="back-btn">← MISSION CONTROL</a>
+    <button class="btn active" id="btn-sim" onclick="toggleSim()">&#9646;&#9646; PAUSE</button>
+    <button class="btn btn-green" id="btn-mission" onclick="toggleMission()">&#128640; LAUNCH MISSION</button>
+    <a href="/" class="btn btn-red" style="text-decoration:none">&#8592; MISSION CONTROL</a>
   </div>
 </div>
-<canvas id="canvas"></canvas>
+
+<canvas id="bgCanvas"></canvas>
+<canvas id="mainCanvas"></canvas>
+
 <div class="legend">
-  <div style="color:#00d4ff;font-size:10px;letter-spacing:2px;margin-bottom:8px">RISK LEVEL</div>
-  <div class="legend-item"><div class="dot" style="background:#ff4444"></div> CRITICAL</div>
-  <div class="legend-item"><div class="dot" style="background:#ff8800"></div> HIGH</div>
-  <div class="legend-item"><div class="dot" style="background:#ffcc00"></div> MEDIUM</div>
-  <div class="legend-item"><div class="dot" style="background:#00cc44"></div> LOW</div>
-  <div class="legend-item"><div class="dot" style="background:#00d4ff"></div> REMOVAL CRAFT</div>
+  <div class="legend-title">RISK LEVEL</div>
+  <div class="legend-item"><div class="dot dot-critical"></div><span>CRITICAL</span></div>
+  <div class="legend-item"><div class="dot dot-high"></div><span>HIGH</span></div>
+  <div class="legend-item"><div class="dot dot-medium"></div><span>MEDIUM</span></div>
+  <div class="legend-item"><div class="dot dot-low"></div><span>LOW</span></div>
+  <div class="legend-item"><div class="dot dot-craft"></div><span>REMOVER-1</span></div>
 </div>
+
 <div class="info-panel">
   <h4>SELECTED OBJECT</h4>
-  <div id="info-content" style="color:#555">Click a debris object<br>to see details</div>
+  <div id="info-content">
+    <div style="color:#333;font-size:11px;text-align:center;padding:12px 0">
+      Click a debris object<br>to inspect
+    </div>
+  </div>
 </div>
+
+<div class="stats-bar">
+  <div class="stat-item"><span class="stat-label">TRACKING</span><span class="stat-value" id="st-track">--</span></div>
+  <div class="stat-item"><span class="stat-label">CRITICAL</span><span class="stat-value crit" id="st-crit">--</span></div>
+  <div class="stat-item"><span class="stat-label">REMOVED</span><span class="stat-value" id="st-removed">0</span></div>
+  <div class="stat-item"><span class="stat-label">MISSION</span><span class="stat-value warn" id="st-mission">STANDBY</span></div>
+</div>
+
 <script>
-const canvas = document.getElementById('canvas');
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight - 50;
-const CX = canvas.width/2, CY = canvas.height/2;
-const EARTH_R = 50, SCALE = 0.18;
-const COLORS = {CRITICAL:'#ff4444',HIGH:'#ff8800',MEDIUM:'#ffcc00',LOW:'#00cc44'};
+
+function resize() {
+  const W = window.innerWidth, H = window.innerHeight;
+  bgCanvas.width = canvas.width = W;
+  bgCanvas.height = canvas.height = H;
+  drawBackground();
+}
+
+// ── BACKGROUND: stars + nebula ──
+function drawBackground() {
+  const W = bgCanvas.width, H = bgCanvas.height;
+  bgCtx.fillStyle = '#000005';
+  bgCtx.fillRect(0,0,W,H);
+
+  // Nebula clouds
+  const nebulas = [
+    {x:W*0.15,y:H*0.2,r:280,c:'#0a0030'},
+    {x:W*0.8, y:H*0.7,r:320,c:'#00001a'},
+    {x:W*0.5, y:H*0.5,r:400,c:'#00050a'},
+  ];
+  nebulas.forEach(n => {
+    const g = bgCtx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);
+    g.addColorStop(0,n.c); g.addColorStop(1,'transparent');
+    bgCtx.fillStyle=g; bgCtx.beginPath(); bgCtx.arc(n.x,n.y,n.r,0,Math.PI*2); bgCtx.fill();
+  });
+
+  // Stars — three layers (tiny, medium, bright)
+  const starLayers = [{count:600,maxR:0.6,alpha:0.4},{count:200,maxR:1.1,alpha:0.7},{count:40,maxR:1.8,alpha:1}];
+  starLayers.forEach(layer => {
+    for(let i=0;i<layer.count;i++){
+      const x=Math.random()*W, y=Math.random()*H, r=Math.random()*layer.maxR;
+      bgCtx.globalAlpha = Math.random()*layer.alpha;
+      bgCtx.fillStyle='#ffffff';
+      bgCtx.beginPath(); bgCtx.arc(x,y,r,0,Math.PI*2); bgCtx.fill();
+    }
+  });
+
+  // A few colored stars
+  const coloredStars = ['#aabbff','#ffddaa','#aaffcc','#ffaaaa'];
+  for(let i=0;i<25;i++){
+    bgCtx.globalAlpha=0.6+Math.random()*0.4;
+    bgCtx.fillStyle=coloredStars[Math.floor(Math.random()*coloredStars.length)];
+    bgCtx.beginPath();
+    bgCtx.arc(Math.random()*W,Math.random()*H,0.8+Math.random()*1.2,0,Math.PI*2);
+    bgCtx.fill();
+  }
+  bgCtx.globalAlpha=1;
+}
+
+// ── EARTH ──
+function drawEarth(cx,cy,r) {
+  // Outer space glow
+  const outerGlow = ctx.createRadialGradient(cx,cy,r,cx,cy,r*3.5);
+  outerGlow.addColorStop(0,'rgba(20,80,255,0.12)');
+  outerGlow.addColorStop(0.5,'rgba(0,30,120,0.05)');
+  outerGlow.addColorStop(1,'transparent');
+  ctx.fillStyle=outerGlow; ctx.beginPath(); ctx.arc(cx,cy,r*3.5,0,Math.PI*2); ctx.fill();
+
+  // Atmosphere glow
+  const atmoGlow = ctx.createRadialGradient(cx,cy,r*0.92,cx,cy,r*1.18);
+  atmoGlow.addColorStop(0,'rgba(80,160,255,0.25)');
+  atmoGlow.addColorStop(0.5,'rgba(40,100,220,0.12)');
+  atmoGlow.addColorStop(1,'transparent');
+  ctx.fillStyle=atmoGlow; ctx.beginPath(); ctx.arc(cx,cy,r*1.18,0,Math.PI*2); ctx.fill();
+
+  // Atmosphere thin ring
+  ctx.strokeStyle='rgba(100,180,255,0.3)';
+  ctx.lineWidth=r*0.06;
+  ctx.beginPath(); ctx.arc(cx,cy,r*1.05,0,Math.PI*2); ctx.stroke();
+
+  ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.clip();
+
+  // Deep ocean base
+  const ocean = ctx.createRadialGradient(cx-r*0.2,cy-r*0.2,r*0.1,cx,cy,r);
+  ocean.addColorStop(0,'#1a6abf');
+  ocean.addColorStop(0.4,'#0d4fa0');
+  ocean.addColorStop(0.7,'#083880');
+  ocean.addColorStop(1,'#041a50');
+  ctx.fillStyle=ocean; ctx.fillRect(cx-r,cy-r,r*2,r*2);
+
+  // Landmasses (simplified continents as blobs)
+  ctx.fillStyle='#2d7a3a';
+  const lands = [
+    {x:-0.15,y:-0.2,rx:0.28,ry:0.38},  // Americas
+    {x:0.18,y:-0.15,rx:0.22,ry:0.30},  // Europe/Africa
+    {x:0.42,y:-0.05,rx:0.20,ry:0.25},  // Asia
+    {x:0.38,y:0.25,rx:0.15,ry:0.12},   // Australia
+    {x:0.0, y:0.42,rx:0.30,ry:0.10},   // Antarctica
+  ];
+  lands.forEach(l => {
+    ctx.beginPath();
+    ctx.ellipse(cx+l.x*r, cy+l.y*r, l.rx*r, l.ry*r, Math.PI*0.1, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // Land shading
+  ctx.fillStyle='#3a8a44';
+  ctx.beginPath(); ctx.ellipse(cx-0.2*r,cy-0.25*r,0.12*r,0.20*r,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+0.22*r,cy-0.18*r,0.10*r,0.18*r,0.2,0,Math.PI*2); ctx.fill();
+
+  // Ice caps
+  ctx.fillStyle='rgba(220,235,255,0.85)';
+  ctx.beginPath(); ctx.ellipse(cx,cy-r*0.88,r*0.25,r*0.14,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx,cy+r*0.90,r*0.32,r*0.12,0,0,Math.PI*2); ctx.fill();
+
+  // Cloud layer
+  ctx.fillStyle='rgba(255,255,255,0.12)';
+  const clouds=[{x:-0.3,y:-0.1},{x:0.1,y:0.2},{x:0.3,y:-0.3},{x:-0.1,y:0.35},{x:0.5,y:0.1}];
+  clouds.forEach(c=>{
+    ctx.beginPath();
+    ctx.ellipse(cx+c.x*r,cy+c.y*r,r*0.22,r*0.08,Math.random()*0.5,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // Specular highlight
+  const spec = ctx.createRadialGradient(cx-r*0.28,cy-r*0.28,0,cx-r*0.1,cy-r*0.1,r*0.7);
+  spec.addColorStop(0,'rgba(255,255,255,0.18)');
+  spec.addColorStop(0.4,'rgba(255,255,255,0.04)');
+  spec.addColorStop(1,'transparent');
+  ctx.fillStyle=spec; ctx.fillRect(cx-r,cy-r,r*2,r*2);
+
+  // Night side shadow
+  const shadow = ctx.createRadialGradient(cx+r*0.6,cy,0,cx+r*0.3,cy,r*1.1);
+  shadow.addColorStop(0,'rgba(0,0,5,0.75)');
+  shadow.addColorStop(0.5,'rgba(0,0,5,0.4)');
+  shadow.addColorStop(1,'transparent');
+  ctx.fillStyle=shadow; ctx.fillRect(cx-r,cy-r,r*2,r*2);
+
+  ctx.restore();
+
+  // Terminator line glow
+  ctx.strokeStyle='rgba(255,140,60,0.15)';
+  ctx.lineWidth=r*0.04;
+  ctx.beginPath(); ctx.arc(cx+r*0.15,cy,r*0.98,Math.PI*0.3,Math.PI*1.7); ctx.stroke();
+}
+
+// ── DEBRIS ──
+const COLORS={CRITICAL:'#ff4444',HIGH:'#ff8800',MEDIUM:'#ffcc00',LOW:'#00cc44'};
+const GLOW  ={CRITICAL:'rgba(255,68,68,',HIGH:'rgba(255,136,0,',MEDIUM:'rgba(255,204,0,',LOW:'rgba(0,204,68,'};
 let debris=[], running=true, missionActive=false;
 let missionTarget=null, removedIds=new Set(), selectedObj=null;
-let craftAngle=0, craftOrbitR=EARTH_R+15;
+let craftAngle=0, craftOrbitR=80;
+let twinkle=0;
 
-async function loadDebris() {
-  const res = await fetch('/api/debris');
-  const data = await res.json();
-  debris = data.map((d,i) => ({
+async function loadDebris(){
+  const res=await fetch('/api/debris');
+  const data=await res.json();
+  const CX=canvas.width/2, CY=canvas.height/2;
+  const EARTH_R = Math.min(CX,CY)*0.14;
+  const SCALE=0.22;
+  debris=data.map((d,i)=>({
     ...d,
-    angle: (i/data.length)*Math.PI*2 + Math.random()*0.5,
-    orbitR: Math.min((d.perigee*SCALE)+EARTH_R+20, Math.min(CX,CY)-30),
-    speed: 0.0008+(d.mean_motion-13)*0.0001,
-    size: d.risk_level==='CRITICAL'?7:d.risk_level==='HIGH'?5:4,
+    angle:(i/data.length)*Math.PI*2+Math.random()*0.3,
+    orbitR:Math.min((d.perigee*SCALE)+EARTH_R+30, Math.min(CX,CY)-40),
+    speed:0.0006+(d.mean_motion-13)*0.00008,
+    size:d.risk_level==='CRITICAL'?8:d.risk_level==='HIGH'?6:d.risk_level==='MEDIUM'?5:4,
+    trail:[],
   }));
-  if(debris.length>0) missionTarget=debris[0];
+  missionTarget=debris[0]||null;
+  document.getElementById('st-track').textContent=debris.length;
+  document.getElementById('st-crit').textContent=debris.filter(d=>d.risk_level==='CRITICAL').length;
 }
 
-function drawEarth() {
-  const glow=ctx.createRadialGradient(CX,CY,EARTH_R*0.5,CX,CY,EARTH_R*2.5);
-  glow.addColorStop(0,'#0044ff22'); glow.addColorStop(1,'transparent');
-  ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(CX,CY,EARTH_R*2.5,0,Math.PI*2); ctx.fill();
-  const grad=ctx.createRadialGradient(CX-10,CY-10,5,CX,CY,EARTH_R);
-  grad.addColorStop(0,'#1a6bbf'); grad.addColorStop(0.5,'#1a4fa0');
-  grad.addColorStop(0.8,'#0d3a7a'); grad.addColorStop(1,'#071a3a');
-  ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(CX,CY,EARTH_R,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle='#4488ff44'; ctx.lineWidth=5;
-  ctx.beginPath(); ctx.arc(CX,CY,EARTH_R+3,0,Math.PI*2); ctx.stroke();
-}
-
-function drawDebris() {
-  debris.forEach(d => {
-    if(removedIds.has(d.norad_id)) return;
+function drawDebrisObjects(CX,CY){
+  debris.forEach(d=>{
+    if(removedIds.has(d.norad_id))return;
     const x=CX+Math.cos(d.angle)*d.orbitR;
     const y=CY+Math.sin(d.angle)*d.orbitR;
     const color=COLORS[d.risk_level];
-    ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=0.4;
-    ctx.globalAlpha=0.2; ctx.beginPath();
-    ctx.arc(CX,CY,d.orbitR,0,Math.PI*2); ctx.stroke(); ctx.restore();
-    if(d.risk_level==='CRITICAL'||d.risk_level==='HIGH') {
-      ctx.save(); ctx.globalAlpha=0.15+0.1*Math.sin(Date.now()*0.004);
-      ctx.fillStyle=color; ctx.beginPath();
-      ctx.arc(x,y,d.size+5,0,Math.PI*2); ctx.fill(); ctx.restore();
+    const glowBase=GLOW[d.risk_level];
+
+    // Orbit ring
+    ctx.save();
+    ctx.strokeStyle=color;
+    ctx.lineWidth=0.3;
+    ctx.globalAlpha=selectedObj&&selectedObj.norad_id===d.norad_id?0.5:0.15;
+    ctx.setLineDash([3,8]);
+    ctx.beginPath(); ctx.arc(CX,CY,d.orbitR,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+
+    // Trail
+    d.trail.push({x,y});
+    if(d.trail.length>18) d.trail.shift();
+    d.trail.forEach((p,i)=>{
+      ctx.globalAlpha=(i/d.trail.length)*0.3;
+      ctx.fillStyle=color;
+      ctx.beginPath(); ctx.arc(p.x,p.y,d.size*(i/d.trail.length)*0.6,0,Math.PI*2); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+
+    // Glow aura
+    const pulse=0.7+0.3*Math.sin(twinkle*0.04+(d.norad_id%10));
+    if(d.risk_level==='CRITICAL'||d.risk_level==='HIGH'){
+      const aura=ctx.createRadialGradient(x,y,0,x,y,d.size*4);
+      aura.addColorStop(0,glowBase+(d.risk_level==='CRITICAL'?0.35:0.2)+')');
+      aura.addColorStop(1,glowBase+'0)');
+      ctx.fillStyle=aura;
+      ctx.beginPath(); ctx.arc(x,y,d.size*4*pulse,0,Math.PI*2); ctx.fill();
     }
-    ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,d.size,0,Math.PI*2); ctx.fill();
-    if(selectedObj&&selectedObj.norad_id===d.norad_id) {
-      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
-      ctx.beginPath(); ctx.arc(x,y,d.size+5,0,Math.PI*2); ctx.stroke();
+
+    // Main debris dot
+    ctx.shadowBlur=d.risk_level==='CRITICAL'?16:d.risk_level==='HIGH'?10:6;
+    ctx.shadowColor=color;
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.arc(x,y,d.size,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+
+    // Selection ring
+    if(selectedObj&&selectedObj.norad_id===d.norad_id){
+      ctx.strokeStyle='#ffffff';
+      ctx.lineWidth=1.5;
+      ctx.globalAlpha=0.8+0.2*Math.sin(twinkle*0.08);
+      ctx.beginPath(); ctx.arc(x,y,d.size+7,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha=1;
     }
-    if(d.risk_level==='CRITICAL'||(selectedObj&&selectedObj.norad_id===d.norad_id)) {
-      ctx.fillStyle=color; ctx.font='9px Courier New';
-      ctx.fillText(d.name.split(' ')[0],x+8,y-4);
+
+    // Label for critical/selected
+    if(d.risk_level==='CRITICAL'||(selectedObj&&selectedObj.norad_id===d.norad_id)){
+      ctx.fillStyle=color;
+      ctx.font='bold 9px Courier New';
+      ctx.shadowBlur=6; ctx.shadowColor=color;
+      ctx.fillText(d.name.split(' ')[0],x+d.size+4,y-4);
+      ctx.shadowBlur=0;
     }
+
     d.x=x; d.y=y;
   });
 }
 
-function drawMission() {
-  if(!missionActive||!missionTarget) return;
+function drawCraft(CX,CY){
+  if(!missionActive||!missionTarget)return;
   const target=debris.find(d=>d.norad_id===missionTarget.norad_id);
-  if(!target||!target.x) return;
-  craftOrbitR+=(target.orbitR-craftOrbitR)*0.008;
-  craftAngle+=0.018;
+  if(!target||!target.x)return;
+  craftOrbitR+=(target.orbitR-craftOrbitR)*0.01;
+  craftAngle+=0.022;
   const cx2=CX+Math.cos(craftAngle)*craftOrbitR;
   const cy2=CY+Math.sin(craftAngle)*craftOrbitR;
-  ctx.save(); ctx.strokeStyle='#00d4ff44'; ctx.lineWidth=1;
-  ctx.setLineDash([4,6]); ctx.beginPath();
-  ctx.moveTo(cx2,cy2); ctx.lineTo(target.x,target.y); ctx.stroke(); ctx.restore();
-  ctx.fillStyle='#00d4ff'; ctx.shadowBlur=12; ctx.shadowColor='#00d4ff';
+
+  // Dashed line to target
+  ctx.save();
+  ctx.strokeStyle='#00d4ff';
+  ctx.lineWidth=0.8;
+  ctx.setLineDash([4,8]);
+  ctx.globalAlpha=0.4;
+  ctx.beginPath(); ctx.moveTo(cx2,cy2); ctx.lineTo(target.x,target.y); ctx.stroke();
+  ctx.restore();
+
+  // Craft glow
+  const cg=ctx.createRadialGradient(cx2,cy2,0,cx2,cy2,20);
+  cg.addColorStop(0,'rgba(0,212,255,0.4)');
+  cg.addColorStop(1,'transparent');
+  ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(cx2,cy2,20,0,Math.PI*2); ctx.fill();
+
+  // Craft dot
+  ctx.shadowBlur=20; ctx.shadowColor='#00d4ff';
+  ctx.fillStyle='#00d4ff';
   ctx.beginPath(); ctx.arc(cx2,cy2,6,0,Math.PI*2); ctx.fill();
-  ctx.shadowBlur=0; ctx.fillStyle='#00d4ff'; ctx.font='9px Courier New';
-  ctx.fillText('REMOVER-1',cx2+8,cy2-4);
+  ctx.shadowBlur=0;
+
+  // Label
+  ctx.fillStyle='#00d4ff'; ctx.font='bold 10px Courier New';
+  ctx.fillText('REMOVER-1',cx2+10,cy2-6);
+
+  // Distance
   const dist=Math.sqrt((cx2-target.x)**2+(cy2-target.y)**2);
-  if(dist<15) {
+  ctx.fillStyle='#00d4ff88'; ctx.font='9px Courier New';
+  ctx.fillText(`${Math.round(dist)}px`,cx2+10,cy2+8);
+
+  if(dist<18){
     removedIds.add(missionTarget.norad_id);
     const remaining=debris.filter(d=>!removedIds.has(d.norad_id)&&(d.risk_level==='CRITICAL'||d.risk_level==='HIGH'));
-    missionTarget=remaining.length>0?remaining[0]:debris.find(d=>!removedIds.has(d.norad_id))||null;
-    if(!missionTarget) { missionActive=false; document.getElementById('btn-mission').textContent='✅ MISSION COMPLETE'; }
+    missionTarget=remaining[0]||debris.find(d=>!removedIds.has(d.norad_id))||null;
+    document.getElementById('st-removed').textContent=removedIds.size;
+    if(!missionTarget){
+      missionActive=false;
+      document.getElementById('btn-mission').textContent='✓ MISSION COMPLETE';
+      document.getElementById('st-mission').textContent='COMPLETE';
+    }
   }
 }
 
-function drawStats() {
-  const active=debris.filter(d=>!removedIds.has(d.norad_id)).length;
-  ctx.fillStyle='#333'; ctx.font='11px Courier New';
-  ctx.fillText(`TRACKING: ${active} objects   REMOVED: ${removedIds.size}   MISSION: ${missionActive?'ACTIVE ▶':'STANDBY'}`,20,canvas.height-15);
-}
+function animate(){
+  const CX=canvas.width/2, CY=canvas.height/2;
+  const EARTH_R=Math.min(CX,CY)*0.14;
 
-function animate() {
-  ctx.fillStyle='#0a0a0f'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  // stars
-  if(!animate.stars) { animate.stars=[...Array(80)].map(()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.2})); }
-  animate.stars.forEach(s=>{ ctx.fillStyle='#ffffff22'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); });
-  drawEarth(); drawDebris(); drawMission(); drawStats();
-  if(running) debris.forEach(d=>{ if(!removedIds.has(d.norad_id)) d.angle+=d.speed; });
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  twinkle++;
+
+  drawEarth(CX,CY,EARTH_R);
+  drawDebrisObjects(CX,CY);
+  drawCraft(CX,CY);
+
+  if(running) debris.forEach(d=>{if(!removedIds.has(d.norad_id))d.angle+=d.speed;});
+  craftAngle; // updated in drawCraft
+
   requestAnimationFrame(animate);
 }
 
-canvas.addEventListener('click',(e)=>{
+canvas.addEventListener('click',e=>{
   const rect=canvas.getBoundingClientRect();
   const mx=e.clientX-rect.left, my=e.clientY-rect.top;
-  let closest=null, minDist=20;
-  debris.forEach(d=>{ if(!d.x||removedIds.has(d.norad_id)) return;
+  let closest=null, minDist=25;
+  debris.forEach(d=>{
+    if(!d.x||removedIds.has(d.norad_id))return;
     const dist=Math.sqrt((mx-d.x)**2+(my-d.y)**2);
     if(dist<minDist){minDist=dist;closest=d;}
   });
-  if(closest){ selectedObj=closest;
+  if(closest){
+    selectedObj=closest;
+    const c=COLORS[closest.risk_level];
     document.getElementById('info-content').innerHTML=`
-      <b style="color:#fff">${closest.name}</b><br>
-      NORAD: <span style="color:#aaa">${closest.norad_id}</span><br>
-      Risk: <span style="color:${COLORS[closest.risk_level]}">${closest.risk_level} — ${closest.risk_percent}%</span><br>
-      Perigee: <span style="color:#fff">${closest.perigee} km</span><br>
-      Inclination: <span style="color:#fff">${closest.inclination}°</span><br>
-      Eccentricity: <span style="color:#fff">${closest.eccentricity}</span><br>
-      Priority Rank: <span style="color:#fff">#${closest.priority_rank}</span>`;
+      <div class="info-row"><span class="info-key">NAME</span><span class="info-val" style="color:#fff;font-size:10px">${closest.name}</span></div>
+      <div class="info-row"><span class="info-key">NORAD</span><span class="info-val">${closest.norad_id}</span></div>
+      <div class="info-row"><span class="info-key">RISK</span><span class="info-val" style="color:${c}">${closest.risk_level} — ${closest.risk_percent}%</span></div>
+      <div class="info-row"><span class="info-key">PERIGEE</span><span class="info-val">${closest.perigee} km</span></div>
+      <div class="info-row"><span class="info-key">INCL.</span><span class="info-val">${closest.inclination}°</span></div>
+      <div class="info-row"><span class="info-key">ECC.</span><span class="info-val">${closest.eccentricity}</span></div>
+      <div class="info-row"><span class="info-key">PRIORITY</span><span class="info-val" style="color:${c}">#${closest.priority_rank}</span></div>
+      <div style="margin-top:10px;background:${c}22;border:1px solid ${c}44;border-radius:6px;padding:6px;font-size:10px;color:${c}">
+        ${closest.risk_level==='CRITICAL'?'⚠ IMMEDIATE REMOVAL REQUIRED':closest.risk_level==='HIGH'?'↑ ELEVATED THREAT — MONITOR':closest.risk_level==='MEDIUM'?'~ STANDARD MONITORING':'✓ LOW PRIORITY'}
+      </div>`;
   }
 });
 
-function toggleSim(){ running=!running; const b=document.getElementById('btn-sim'); b.textContent=running?'⏸ PAUSE':'▶ RESUME'; b.classList.toggle('active',running); }
+function toggleSim(){
+  running=!running;
+  const b=document.getElementById('btn-sim');
+  b.textContent=running?'❚❚ PAUSE':'▶ RESUME';
+  b.classList.toggle('active',running);
+}
+
 function toggleMission(){
   missionActive=!missionActive;
-  if(missionActive){ removedIds.clear(); craftOrbitR=EARTH_R+15;
+  const b=document.getElementById('btn-mission');
+  if(missionActive){
+    removedIds.clear(); craftOrbitR=80;
     missionTarget=debris.find(d=>d.risk_level==='CRITICAL')||debris.find(d=>d.risk_level==='HIGH')||debris[0];
-    document.getElementById('btn-mission').textContent='🛑 ABORT MISSION';
-    document.getElementById('btn-mission').classList.add('active');
+    b.textContent='⛔ ABORT MISSION';
+    b.className='btn btn-red';
+    document.getElementById('st-mission').textContent='ACTIVE';
+    document.getElementById('st-removed').textContent='0';
   } else {
-    document.getElementById('btn-mission').textContent='🚀 LAUNCH MISSION';
-    document.getElementById('btn-mission').classList.remove('active');
+    b.textContent='🚀 LAUNCH MISSION';
+    b.className='btn btn-green';
+    document.getElementById('st-mission').textContent='STANDBY';
   }
 }
+
+window.addEventListener('resize',()=>{ resize(); });
+resize();
 loadDebris().then(animate);
-window.addEventListener('resize',()=>{ canvas.width=window.innerWidth; canvas.height=window.innerHeight-50; });
 </script>
 </body>
 </html>

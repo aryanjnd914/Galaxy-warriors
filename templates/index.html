@@ -6,76 +6,153 @@
 <title>ORBIT-GUARD | Space Debris Mission Control</title>
 <script src="/static/chart.min.js"></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0a0f; color: #e0e0e0; font-family: 'Courier New', monospace; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#05050f; color:#e0e0e0; font-family:'Courier New',monospace; min-height:100vh; }
 
-  .topbar {
-    background: linear-gradient(90deg, #0d0d1a, #0a1628);
-    border-bottom: 1px solid #00d4ff33;
-    padding: 12px 24px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .logo { font-size: 22px; font-weight: bold; color: #00d4ff; letter-spacing: 3px; }
-  .logo span { color: #ff4444; }
-  .status-bar { display: flex; gap: 24px; font-size: 11px; color: #888; }
-  .status-bar .live { color: #00ff88; }
-  .pulse { display: inline-block; width: 8px; height: 8px; background: #00ff88;
-           border-radius: 50%; margin-right: 6px; animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.3)} }
+/* TOPBAR */
+.topbar {
+  background:linear-gradient(90deg,#080818,#0a1628);
+  border-bottom:1px solid #00d4ff33;
+  padding:12px 24px;
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:100;
+}
+.logo { font-size:22px; font-weight:bold; color:#00d4ff; letter-spacing:4px; }
+.logo span { color:#ff4444; }
+.status-bar { display:flex; gap:24px; font-size:11px; color:#888; align-items:center; }
+.live { color:#00ff88; display:flex; align-items:center; gap:6px; }
+.pulse { width:8px; height:8px; background:#00ff88; border-radius:50%; animation:pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(1.4)} }
 
-  .grid-top {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px; padding: 16px 24px 0;
-  }
-  .stat-card {
-    background: #0d0d1a; border: 1px solid #1a1a3a;
-    border-radius: 10px; padding: 16px;
-    text-align: center;
-  }
-  .stat-card .val { font-size: 36px; font-weight: bold; }
-  .stat-card .lbl { font-size: 11px; color: #666; margin-top: 4px; letter-spacing: 1px; }
-  .critical { color: #ff4444; }
-  .high     { color: #ff8800; }
-  .medium   { color: #ffcc00; }
-  .low      { color: #00cc44; }
+/* ALERT BANNER */
+.alert-banner {
+  background:linear-gradient(90deg,#ff000011,#ff444422,#ff000011);
+  border-top:1px solid #ff444444; border-bottom:1px solid #ff444444;
+  padding:6px 24px; font-size:11px; color:#ff6666; letter-spacing:2px;
+  display:flex; align-items:center; gap:12px;
+  animation:alertpulse 2s infinite;
+}
+@keyframes alertpulse { 0%,100%{background:linear-gradient(90deg,#ff000011,#ff444422,#ff000011)} 50%{background:linear-gradient(90deg,#ff000022,#ff444433,#ff000022)} }
+.alert-dot { width:8px; height:8px; background:#ff4444; border-radius:50%; animation:pulse 0.8s infinite; }
+#alert-banner { display:none; }
 
-  .grid-mid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px; padding: 12px 24px 0;
-  }
-  .chart-card {
-    background: #0d0d1a; border: 1px solid #1a1a3a;
-    border-radius: 10px; padding: 16px;
-  }
-  .chart-card h3 { font-size: 12px; color: #00d4ff; letter-spacing: 2px; margin-bottom: 12px; }
+/* STAT CARDS */
+.grid-top {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:12px; padding:16px 24px 0;
+}
+.stat-card {
+  background:#0a0a1a;
+  border:1px solid #1a1a3a;
+  border-radius:12px; padding:20px 16px;
+  text-align:center; position:relative; overflow:hidden;
+  transition:border-color 0.3s, transform 0.2s;
+}
+.stat-card:hover { transform:translateY(-2px); }
+.stat-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+}
+.stat-card.card-total  { --accent:#00d4ff; }
+.stat-card.card-critical { --accent:#ff4444; border-color:#ff444433; }
+.stat-card.card-high   { --accent:#ff8800; }
+.stat-card.card-medium { --accent:#ffcc00; }
+.stat-card.card-critical.has-critical { border-color:#ff444466; box-shadow:0 0 20px #ff444422; }
+.stat-val { font-size:42px; font-weight:bold; line-height:1; }
+.stat-lbl { font-size:10px; color:#555; margin-top:6px; letter-spacing:2px; }
+.stat-sub { font-size:10px; color:#333; margin-top:4px; }
+.c-total    { color:#00d4ff; }
+.c-critical { color:#ff4444; }
+.c-high     { color:#ff8800; }
+.c-medium   { color:#ffcc00; }
+.c-low      { color:#00cc44; }
 
-  .table-section { padding: 12px 24px 24px; }
-  .table-card {
-    background: #0d0d1a; border: 1px solid #1a1a3a;
-    border-radius: 10px; padding: 16px;
-  }
-  .table-card h3 { font-size: 12px; color: #00d4ff; letter-spacing: 2px; margin-bottom: 12px; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { color: #555; font-weight: normal; padding: 8px 10px; text-align: left;
-       border-bottom: 1px solid #1a1a3a; letter-spacing: 1px; }
-  td { padding: 9px 10px; border-bottom: 1px solid #111; }
-  tr:hover td { background: #0f0f20; }
+/* CHARTS */
+.grid-mid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:12px; padding:12px 24px 0;
+}
+.chart-card {
+  background:#0a0a1a; border:1px solid #1a1a3a;
+  border-radius:12px; padding:16px;
+}
+.card-title {
+  font-size:11px; color:#00d4ff; letter-spacing:2px;
+  margin-bottom:12px; display:flex; align-items:center; gap:8px;
+}
+.card-title::before { content:''; width:3px; height:12px; background:#00d4ff; border-radius:2px; display:inline-block; }
 
-  .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 10px; font-weight: bold; letter-spacing: 1px;
-  }
-  .badge-CRITICAL { background: #ff444422; color: #ff4444; border: 1px solid #ff444444; }
-  .badge-HIGH     { background: #ff880022; color: #ff8800; border: 1px solid #ff880044; }
-  .badge-MEDIUM   { background: #ffcc0022; color: #ffcc00; border: 1px solid #ffcc0044; }
-  .badge-LOW      { background: #00cc4422; color: #00cc44; border: 1px solid #00cc4444; }
+/* MISSION LOG */
+.grid-bottom {
+  display:grid; grid-template-columns:2fr 1fr;
+  gap:12px; padding:12px 24px 0;
+}
+.log-card {
+  background:#0a0a1a; border:1px solid #1a1a3a;
+  border-radius:12px; padding:16px; max-height:180px; overflow:hidden;
+}
+.log-entry {
+  font-size:10px; padding:4px 0; border-bottom:1px solid #0f0f1a;
+  display:flex; gap:10px; align-items:flex-start;
+}
+.log-time { color:#333; min-width:65px; }
+.log-msg { color:#666; }
+.log-msg.warn { color:#ff8800; }
+.log-msg.crit { color:#ff4444; }
+.log-msg.ok   { color:#00cc44; }
 
-  .risk-bar-bg { background: #1a1a2e; border-radius: 4px; height: 6px; width: 100px; display:inline-block; vertical-align:middle; }
-  .risk-bar    { height: 6px; border-radius: 4px; }
+.threat-card {
+  background:#0a0a1a; border:1px solid #1a1a3a;
+  border-radius:12px; padding:16px;
+}
+.threat-item {
+  display:flex; align-items:center; gap:10px;
+  padding:6px 0; border-bottom:1px solid #0f0f1a; font-size:11px;
+}
+.threat-rank { color:#333; width:20px; text-align:center; }
+.threat-name { color:#ccc; flex:1; }
+.threat-score-bar { width:60px; height:4px; background:#1a1a2e; border-radius:2px; }
+.threat-score-fill { height:4px; border-radius:2px; }
 
-  .footer { text-align:center; padding: 12px; color: #333; font-size: 10px; }
+/* TABLE */
+.table-section { padding:12px 24px; }
+.table-card {
+  background:#0a0a1a; border:1px solid #1a1a3a;
+  border-radius:12px; padding:16px;
+}
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th {
+  color:#444; font-weight:normal; padding:8px 10px;
+  text-align:left; border-bottom:1px solid #1a1a3a; letter-spacing:1px; font-size:10px;
+}
+td { padding:10px; border-bottom:1px solid #0d0d1a; }
+tr:hover td { background:#0d0d20; }
+.badge {
+  display:inline-block; padding:3px 10px; border-radius:4px;
+  font-size:10px; font-weight:bold; letter-spacing:1px;
+}
+.badge-CRITICAL { background:#ff444418; color:#ff4444; border:1px solid #ff444440; }
+.badge-HIGH     { background:#ff880018; color:#ff8800; border:1px solid #ff880040; }
+.badge-MEDIUM   { background:#ffcc0018; color:#ffcc00; border:1px solid #ffcc0040; }
+.badge-LOW      { background:#00cc4418; color:#00cc44; border:1px solid #00cc4440; }
+.risk-bar-bg { background:#111122; border-radius:3px; height:5px; width:80px; display:inline-block; vertical-align:middle; }
+.risk-bar    { height:5px; border-radius:3px; display:block; }
+
+/* NAV BUTTONS */
+.nav-row {
+  display:flex; gap:12px; padding:0 24px 24px; justify-content:center;
+}
+.nav-btn {
+  padding:12px 32px; border-radius:8px; font-family:'Courier New',monospace;
+  font-size:12px; font-weight:bold; letter-spacing:2px; text-decoration:none;
+  border:none; cursor:pointer; transition:all 0.2s;
+}
+.nav-btn-primary { background:#00d4ff; color:#000; }
+.nav-btn-primary:hover { background:#33ddff; transform:translateY(-1px); }
+.nav-btn-secondary { background:transparent; color:#ff4444; border:1px solid #ff444444; }
+.nav-btn-secondary:hover { background:#ff444411; }
+
+.footer { text-align:center; padding:12px; color:#222; font-size:10px; letter-spacing:1px; }
 </style>
 </head>
 <body>
@@ -84,32 +161,65 @@
   <div class="logo">ORBIT<span>-</span>GUARD</div>
   <div class="status-bar">
     <span class="live"><span class="pulse"></span>MISSION CONTROL ACTIVE</span>
-    <span id="clock">--:--:--</span>
-    <span>PI-4 EDGE NODE</span>
+    <span id="clock">--:--:-- UTC</span>
+    <span id="uptime" style="color:#444">EDGE AI NODE</span>
   </div>
 </div>
 
-<div class="grid-top" id="stats">
-  <div class="stat-card"><div class="val" id="s-total">--</div><div class="lbl">TOTAL TRACKED</div></div>
-  <div class="stat-card"><div class="val critical" id="s-critical">--</div><div class="lbl">CRITICAL RISK</div></div>
-  <div class="stat-card"><div class="val high" id="s-high">--</div><div class="lbl">HIGH RISK</div></div>
-  <div class="stat-card"><div class="val medium" id="s-medium">--</div><div class="lbl">MEDIUM RISK</div></div>
+<div id="alert-banner" class="alert-banner">
+  <span class="alert-dot"></span>
+  <span>&#9888; CRITICAL DEBRIS DETECTED &mdash; IMMEDIATE THREAT ASSESSMENT REQUIRED</span>
+  <span id="alert-count"></span>
+</div>
+
+<div class="grid-top">
+  <div class="stat-card card-total">
+    <div class="stat-val c-total" id="s-total">--</div>
+    <div class="stat-lbl">TOTAL TRACKED</div>
+    <div class="stat-sub" id="s-sub">Loading orbital data...</div>
+  </div>
+  <div class="stat-card card-critical" id="card-critical">
+    <div class="stat-val c-critical" id="s-critical">--</div>
+    <div class="stat-lbl">CRITICAL RISK</div>
+    <div class="stat-sub">Immediate removal priority</div>
+  </div>
+  <div class="stat-card card-high">
+    <div class="stat-val c-high" id="s-high">--</div>
+    <div class="stat-lbl">HIGH RISK</div>
+    <div class="stat-sub">Elevated collision threat</div>
+  </div>
+  <div class="stat-card card-medium">
+    <div class="stat-val c-medium" id="s-medium">--</div>
+    <div class="stat-lbl">MEDIUM RISK</div>
+    <div class="stat-sub">Monitoring active</div>
+  </div>
 </div>
 
 <div class="grid-mid">
   <div class="chart-card">
-    <h3>RISK DISTRIBUTION</h3>
-    <canvas id="riskChart" height="200"></canvas>
+    <div class="card-title">RISK DISTRIBUTION</div>
+    <canvas id="riskChart" height="180"></canvas>
   </div>
   <div class="chart-card">
-    <h3>ALTITUDE vs RISK SCORE</h3>
-    <canvas id="altChart" height="200"></canvas>
+    <div class="card-title">ALTITUDE vs RISK SCORE</div>
+    <canvas id="altChart" height="180"></canvas>
+  </div>
+</div>
+
+<div class="grid-bottom">
+  <div class="log-card">
+    <div class="card-title" style="margin-bottom:8px">MISSION LOG</div>
+    <div id="mission-log"></div>
+  </div>
+  <div class="threat-card">
+    <div class="card-title" style="margin-bottom:8px">TOP THREATS</div>
+    <div id="top-threats"></div>
   </div>
 </div>
 
 <div class="table-section">
   <div class="table-card">
-    <h3>DEBRIS PRIORITY QUEUE — RANKED BY COLLISION RISK</h3>
+    <div class="card-title" style="margin-bottom:12px">DEBRIS PRIORITY QUEUE &mdash; RANKED BY COLLISION RISK</div>
     <table>
       <thead>
         <tr>
@@ -123,94 +233,253 @@
   </div>
 </div>
 
-<div style="text-align:center;padding:16px;"><a href="/simulation" style="background:#00d4ff;color:#000;padding:12px 32px;border-radius:6px;font-family:monospace;font-weight:bold;letter-spacing:2px;text-decoration:none;"><div style="text-align:center;padding:16px;"><a href="/simulation" style="background:#00d4ff;color:#000;padding:12px 32px;border-radius:6px;font-family:monospace;font-weight:bold;letter-spacing:2px;text-decoration:none;"><div style="text-align:center;padding:16px;"><a href="/simulation" style="background:#00d4ff;color:#000;padding:12px 32px;border-radius:6px;font-family:monospace;font-weight:bold;letter-spacing:2px;text-decoration:none;"><div class="footer">#9654; LAUNCH ORBITAL SIMULATION</a></div><div class="footer">#9654; LAUNCH ORBITAL SIMULATION</a></div><div class="footer">#9654; LAUNCH ORBITAL SIMULATION</a></div><div class="footer">ORBIT-GUARD v1.0 — Edge AI Space Debris Mission Control — Raspberry Pi 4</div>
+<div class="nav-row">
+  <a href="/simulation" class="nav-btn nav-btn-primary">&#9654; LAUNCH ORBITAL SIMULATION</a>
+  <a href="/report" class="nav-btn nav-btn-secondary">&#9741; THREAT ASSESSMENT REPORT</a>
+</div>
+
+<div class="footer">ORBIT-GUARD v1.0 &mdash; AI-Powered Space Debris Mission Control &mdash; NSIC 2026</div>
 
 <script>
 // Clock
 setInterval(() => {
-  document.getElementById('clock').textContent = new Date().toUTCString().slice(17, 25) + ' UTC';
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toUTCString().slice(17,25) + ' UTC';
 }, 1000);
 
-let riskChart, altChart;
+// Mission log
+const logMessages = [];
+function addLog(msg, type='') {
+  const now = new Date().toUTCString().slice(17,25);
+  logMessages.unshift({time: now, msg, type});
+  if(logMessages.length > 8) logMessages.pop();
+  const el = document.getElementById('mission-log');
+  el.innerHTML = logMessages.map(l =>
+    `<div class="log-entry"><span class="log-time">${l.time}</span><span class="log-msg ${l.type}">${l.msg}</span></div>`
+  ).join('');
+}
+
+let riskChart, altChart, firstLoad = true;
 
 async function loadData() {
-  const res = await fetch('/api/debris');
-  const data = await res.json();
+  try {
+    const res = await fetch('/api/debris');
+    const data = await res.json();
 
-  // Stats
-  const counts = {CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0};
-  data.forEach(d => counts[d.risk_level]++);
-  document.getElementById('s-total').textContent = data.length;
-  document.getElementById('s-critical').textContent = counts.CRITICAL;
-  document.getElementById('s-high').textContent = counts.HIGH;
-  document.getElementById('s-medium').textContent = counts.MEDIUM;
+    const counts = {CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+    data.forEach(d => counts[d.risk_level]++);
 
-  // Table
-  const tbody = document.getElementById('debris-table');
-  tbody.innerHTML = '';
-  data.forEach(obj => {
-    const barColor = {CRITICAL:'#ff4444',HIGH:'#ff8800',MEDIUM:'#ffcc00',LOW:'#00cc44'}[obj.risk_level];
-    tbody.innerHTML += `
-      <tr>
-        <td style="color:#555">${obj.priority_rank}</td>
+    document.getElementById('s-total').textContent = data.length;
+    document.getElementById('s-critical').textContent = counts.CRITICAL;
+    document.getElementById('s-high').textContent = counts.HIGH;
+    document.getElementById('s-medium').textContent = counts.MEDIUM;
+    document.getElementById('s-sub').textContent = `${data.length} objects in tracking database`;
+
+    // Critical alert banner
+    const banner = document.getElementById('alert-banner');
+    const critCard = document.getElementById('card-critical');
+    if(counts.CRITICAL > 0) {
+      banner.style.display = 'flex';
+      document.getElementById('alert-count').textContent = `[${counts.CRITICAL} OBJECT${counts.CRITICAL>1?'S':''}]`;
+      critCard.classList.add('has-critical');
+    } else {
+      banner.style.display = 'none';
+      critCard.classList.remove('has-critical');
+    }
+
+    // Mission log
+    if(firstLoad) {
+      addLog(`System online. Tracking ${data.length} orbital objects.`, 'ok');
+      if(counts.CRITICAL > 0) addLog(`${counts.CRITICAL} CRITICAL object(s) detected!`, 'crit');
+      if(counts.HIGH > 0) addLog(`${counts.HIGH} HIGH risk object(s) flagged.`, 'warn');
+      addLog(`AI risk scoring complete. Data refreshes every 30s.`, '');
+      firstLoad = false;
+    } else {
+      addLog(`Data refreshed. ${data.length} objects tracked.`, 'ok');
+    }
+
+    // Top threats panel
+    const top5 = data.slice(0,5);
+    const colors = {CRITICAL:'#ff4444',HIGH:'#ff8800',MEDIUM:'#ffcc00',LOW:'#00cc44'};
+    document.getElementById('top-threats').innerHTML = top5.map(d => `
+      <div class="threat-item">
+        <span class="threat-rank">#${d.priority_rank}</span>
+        <span class="threat-name">${d.name.split(' ').slice(0,2).join(' ')}</span>
+        <div class="threat-score-bar"><div class="threat-score-fill" style="width:${d.risk_percent}%;background:${colors[d.risk_level]}"></div></div>
+        <span style="font-size:10px;color:${colors[d.risk_level]}">${d.risk_percent}%</span>
+      </div>`).join('');
+
+    // Table
+    const tbody = document.getElementById('debris-table');
+    tbody.innerHTML = '';
+    data.forEach(obj => {
+      const c = colors[obj.risk_level];
+      tbody.innerHTML += `<tr>
+        <td style="color:#444">${obj.priority_rank}</td>
         <td style="color:#fff;font-weight:bold">${obj.name}</td>
-        <td style="color:#666">${obj.norad_id}</td>
+        <td style="color:#555;font-size:11px">${obj.norad_id}</td>
         <td><span class="badge badge-${obj.risk_level}">${obj.risk_level}</span></td>
         <td>
-          <span style="margin-right:8px;color:${barColor}">${obj.risk_percent}%</span>
-          <span class="risk-bar-bg"><span class="risk-bar" style="width:${obj.risk_percent}%;background:${barColor}"></span></span>
+          <span style="color:${c};margin-right:8px;font-weight:bold">${obj.risk_percent}%</span>
+          <span class="risk-bar-bg"><span class="risk-bar" style="width:${obj.risk_percent}%;background:${c}"></span></span>
         </td>
-        <td>${obj.perigee} km</td>
-        <td>${obj.inclination}°</td>
-        <td>${obj.eccentricity}</td>
+        <td style="color:#aaa">${obj.perigee} km</td>
+        <td style="color:#aaa">${obj.inclination}&deg;</td>
+        <td style="color:#aaa">${obj.eccentricity}</td>
       </tr>`;
-  });
+    });
 
-  // Charts
-  const riskCounts = [counts.CRITICAL, counts.HIGH, counts.MEDIUM, counts.LOW];
-  const scatterPoints = data.map(d => ({
-    x: d.perigee,
-    y: d.risk_percent,
-    label: d.name
-  }));
-  const pointColors = data.map(d =>
-    ({CRITICAL:'#ff4444',HIGH:'#ff8800',MEDIUM:'#ffcc00',LOW:'#00cc44'})[d.risk_level]
-  );
+    // Charts
+    const riskCounts = [counts.CRITICAL,counts.HIGH,counts.MEDIUM,counts.LOW];
+    const scatterPoints = data.map(d => ({x:d.perigee, y:d.risk_percent}));
+    const pointColors = data.map(d => colors[d.risk_level]);
 
-  if (riskChart) riskChart.destroy();
-  if (altChart) altChart.destroy();
+    if(riskChart) riskChart.destroy();
+    if(altChart) altChart.destroy();
 
-  riskChart = new Chart(document.getElementById('riskChart'), {
-    type: 'doughnut',
-    data: {
-      labels: ['Critical', 'High', 'Medium', 'Low'],
-      datasets: [{ data: riskCounts,
-        backgroundColor: ['#ff4444','#ff8800','#ffcc00','#00cc44'], borderWidth: 0 }]
-    },
-    options: {
-      plugins: { legend: { labels: { color: '#888', font: { size: 11 } } } },
-      cutout: '65%'
-    }
-  });
-
-  altChart = new Chart(document.getElementById('altChart'), {
-    type: 'scatter',
-    data: { datasets: [{ label: 'Debris', data: scatterPoints,
-      backgroundColor: pointColors, pointRadius: 6 }] },
-    options: {
-      scales: {
-        x: { title: { display:true, text:'Perigee Altitude (km)', color:'#666' },
-             ticks:{color:'#555'}, grid:{color:'#111'} },
-        y: { title: { display:true, text:'Risk Score (%)', color:'#666' },
-             ticks:{color:'#555'}, grid:{color:'#111'} }
+    riskChart = new Chart(document.getElementById('riskChart'), {
+      type:'doughnut',
+      data:{
+        labels:['Critical','High','Medium','Low'],
+        datasets:[{data:riskCounts,
+          backgroundColor:['#ff4444','#ff8800','#ffcc00','#00cc44'],
+          borderColor:'#05050f', borderWidth:3}]
       },
-      plugins: { legend: { display: false } }
-    }
-  });
+      options:{
+        plugins:{
+          legend:{labels:{color:'#666',font:{size:11,family:'Courier New'},padding:16}},
+          tooltip:{callbacks:{label:c=>`  ${c.label}: ${c.raw} objects`}}
+        },
+        cutout:'68%'
+      }
+    });
+
+    altChart = new Chart(document.getElementById('altChart'), {
+      type:'scatter',
+      data:{datasets:[{label:'Debris',data:scatterPoints,
+        backgroundColor:pointColors,pointRadius:7,pointHoverRadius:10}]},
+      options:{
+        scales:{
+          x:{title:{display:true,text:'Perigee Altitude (km)',color:'#555'},
+             ticks:{color:'#444'},grid:{color:'#0d0d1a'}},
+          y:{title:{display:true,text:'Risk Score (%)',color:'#555'},
+             ticks:{color:'#444'},grid:{color:'#0d0d1a'}}
+        },
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{label:c=>`Risk: ${c.parsed.y}% @ ${c.parsed.x}km`}}}
+      }
+    });
+
+  } catch(e) {
+    addLog('Data fetch error. Using cached data.', 'warn');
+  }
 }
 
 loadData();
 setInterval(loadData, 30000);
 </script>
+
+<!-- CONJUNCTION WARNING PANEL -->
+<div style="margin: 24px 16px;">
+  <div style="background: #0d0d1a; border: 1px solid #ff003c; border-radius: 12px; padding: 20px;">
+    <h2 style="color: #ff003c; font-family: monospace; margin: 0 0 16px 0; font-size: 1.2rem;">
+      &#9888; CONJUNCTION WARNING PANEL
+    </h2>
+    <div id="conjunction-list">
+      <p style="color: #888; font-family: monospace;">Loading conjunction data...</p>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadConjunctions() {
+  try {
+    const res = await fetch('/api/conjunctions');
+    const data = await res.json();
+    const container = document.getElementById('conjunction-list');
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p style="color:#00ff88;font-family:monospace;">&#10003; No active conjunctions detected.</p>';
+      return;
+    }
+    container.innerHTML = data.map(c => {
+      const color = c.risk_level === 'CRITICAL' ? '#ff003c' : c.risk_level === 'HIGH' ? '#ff8800' : '#ffcc00';
+      return `
+        <div style="background:#1a0010;border:1px solid ${color};border-radius:8px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <span style="color:${color};font-family:monospace;font-weight:bold;">&#9888; ${c.risk_level} CONJUNCTION</span><br>
+            <span style="color:#fff;font-family:monospace;font-size:0.95rem;">${c.object1} &harr; ${c.object2}</span>
+          </div>
+          <div style="text-align:right;">
+            <span style="color:#ffcc00;font-family:monospace;font-size:1.1rem;font-weight:bold;">${Number(c.distance_km).toFixed(1)} km</span><br>
+            <span style="color:#888;font-family:monospace;font-size:0.8rem;">apart</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    document.getElementById('conjunction-list').innerHTML = '<p style="color:#ff003c;font-family:monospace;">Error loading conjunction data.</p>';
+  }
+}
+loadConjunctions();
+setInterval(loadConjunctions, 30000);
+</script>
+
+
+
+<!-- MONTE CARLO PANEL -->
+<div style="margin: 0 24px 24px;">
+  <div style="background:#0a0a1a;border:1px solid #00d4ff33;border-radius:12px;padding:20px;">
+    <div style="color:#00d4ff;font-size:11px;letter-spacing:2px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+      <span style="width:3px;height:12px;background:#00d4ff;border-radius:2px;display:inline-block;"></span>
+      COLLISION PROBABILITY — MONTE CARLO SIMULATION (1000 RUNS)
+    </div>
+    <div id="monte-loading" style="color:#555;font-size:12px;">Running simulations...</div>
+    <table id="monte-table" style="width:100%;border-collapse:collapse;font-size:12px;display:none;">
+      <thead>
+        <tr>
+          <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">OBJECT</th>
+          <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">ALTITUDE</th>
+          <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">RISK</th>
+          <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">24H %</th>
+          <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">48H %</th>
+          <th style="color:#444;font-weight:normal;padding:8px 10px;text-align:left;border-bottom:1px solid #1a1a3a;letter-spacing:1px;font-size:10px;">72H %</th>
+        </tr>
+      </thead>
+      <tbody id="monte-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function loadMonteCarlo() {
+  try {
+    const res = await fetch('/api/monte_carlo');
+    const data = await res.json();
+    document.getElementById('monte-loading').style.display = 'none';
+    const table = document.getElementById('monte-table');
+    table.style.display = 'table';
+    const colors = {CRITICAL:'#ff4444',HIGH:'#ff8800',MEDIUM:'#ffcc00',LOW:'#00cc44'};
+    document.getElementById('monte-body').innerHTML = data.map(d => {
+      const c = colors[d.risk_level] || '#888';
+      const p24 = parseFloat(d.prob_24h || 0).toFixed(3);
+      const p48 = parseFloat(d.prob_48h || 0).toFixed(3);
+      const p72 = parseFloat(d.prob_72h || 0).toFixed(3);
+      return `<tr>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#fff;font-weight:bold;">${d.name}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#aaa;">${d.perigee_km || d.perigee || d.altitude_km || d.altitude || '—'} km</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;"><span style="color:${c};font-weight:bold;">${d.risk_level}</span></td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#00d4ff;">${p24}%</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#00aaff;">${p48}%</td>
+        <td style="padding:9px 10px;border-bottom:1px solid #0d0d1a;color:#0088ff;">${p72}%</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('monte-loading').textContent = 'Error loading Monte Carlo data.';
+  }
+}
+loadMonteCarlo();
+setInterval(loadMonteCarlo, 60000);
+</script>
+
 </body>
 </html>

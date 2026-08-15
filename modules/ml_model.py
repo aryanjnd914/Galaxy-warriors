@@ -1,7 +1,4 @@
-import numpy as np
 import json
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import MinMaxScaler
 
 def compute_risk_score(obj):
     """
@@ -13,7 +10,7 @@ def compute_risk_score(obj):
     if 400 <= perigee <= 800:
         alt_risk = 1.0 - abs(perigee - 600) / 400
     elif perigee < 400:
-        alt_risk = 0.4  # decaying soon, lower long-term risk
+        alt_risk = 0.4
     else:
         alt_risk = max(0.1, 1.0 - (perigee - 800) / 800)
 
@@ -30,11 +27,11 @@ def compute_risk_score(obj):
     else:
         inc_risk = 0.4
 
-    # Factor 4: Drag (bstar) — high drag = unstable orbit
+    # Factor 4: Drag (bstar) - high drag = unstable orbit
     bstar = obj.get("bstar", 0.0001)
     drag_risk = min(1.0, bstar / 0.0005)
 
-    # Factor 5: Mean motion — higher = lower orbit = more conjunctions
+    # Factor 5: Mean motion - higher = lower orbit = more conjunctions
     mm = obj.get("mean_motion", 14.0)
     mm_risk = min(1.0, max(0.0, (mm - 13.0) / 3.0))
 
@@ -76,10 +73,9 @@ def score_debris(debris_list):
             "risk_score": score,
             "risk_percent": round(score * 100, 1),
             "risk_level": classify_risk(score),
-            "priority_rank": 0  # filled below
+            "priority_rank": 0
         })
 
-    # Sort by risk score descending
     results.sort(key=lambda x: x["risk_score"], reverse=True)
     for i, r in enumerate(results):
         r["priority_rank"] = i + 1
