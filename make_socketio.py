@@ -1,4 +1,5 @@
-
+# Minimal Socket.IO client compatible with flask-socketio
+content = r"""
 (function(global){
   var callbacks = {};
   var ws = null;
@@ -64,3 +65,8 @@
 
   global.io = io;
 })(window);
+"""
+
+with open('static/socket.io.min.js', 'w', encoding='utf-8') as f:
+    f.write(content)
+print("Socket.IO client created successfully")

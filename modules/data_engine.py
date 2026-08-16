@@ -1,5 +1,5 @@
 import requests, json, os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 CACHE_FILE = "data/cached_debris_tle.json"
 GP_DEBRIS_URL = "https://celestrak.org/GP/query?GROUP=debris&FORMAT=json"
@@ -28,45 +28,68 @@ FALLBACK_DATA = [
   {"name": "RESURS DEB", "norad_id": "19650", "inclination": 97.8, "eccentricity": 0.0013, "mean_motion": 14.30, "perigee": 755, "apogee": 782, "bstar": 0.00013, "raan": 15.0}
 ]
 
-def fetch_live_tle():
-    # Always use cache if it exists — never overwrite with fewer objects
-    if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE) as f:
-            cached = json.load(f)
-        if len(cached) >= 20:
-            print("[data_engine] Using cached TLE data")
-            return cached
 
-    # Try live API
+def fetch_live_tle():
+    """
+    Always tries CelesTrak live API first.
+    Falls back to local cache if live fetch fails.
+    Falls back to hardcoded data if no cache exists.
+    This ensures data is always as fresh as possible.
+    """
+
+    # ── Try live CelesTrak API ─────────────────────────────────────────────
     try:
-        print("[data_engine] Trying CelesTrak GP JSON API...")
+        print("[data_engine] Fetching LIVE data from CelesTrak...")
         resp = requests.get(GP_DEBRIS_URL, timeout=15, headers=HEADERS)
         resp.raise_for_status()
         gp_data = resp.json()
+
         debris_list = []
-        for obj in gp_data[:100]:
-            debris_list.append({
-                "name": obj.get("OBJECT_NAME", "UNKNOWN DEB"),
-                "norad_id": str(obj.get("NORAD_CAT_ID", "00000")),
-                "inclination": float(obj.get("INCLINATION", 0)),
-                "eccentricity": float(obj.get("ECCENTRICITY", 0)),
-                "mean_motion": float(obj.get("MEAN_MOTION", 0)),
-                "perigee": float(obj.get("PERIGEE", 400)),
-                "apogee": float(obj.get("APOGEE", 500)),
-                "bstar": float(obj.get("BSTAR", 0)),
-                "raan": float(obj.get("RA_OF_ASC_NODE", 0)),
-            })
+        for obj in gp_data[:50]:  # take top 50 live objects
+            try:
+                debris_list.append({
+                    "name":          obj.get("OBJECT_NAME", "UNKNOWN DEB"),
+                    "norad_id":      str(obj.get("NORAD_CAT_ID", "00000")),
+                    "inclination":   float(obj.get("INCLINATION", 0)),
+                    "eccentricity":  float(obj.get("ECCENTRICITY", 0)),
+                    "mean_motion":   float(obj.get("MEAN_MOTION", 0)),
+                    "perigee":       float(obj.get("PERIGEE", 400)),
+                    "apogee":        float(obj.get("APOGEE", 500)),
+                    "bstar":         float(obj.get("BSTAR", 0)),
+                    "raan":          float(obj.get("RA_OF_ASC_NODE", 0)),
+                    "epoch":         obj.get("EPOCH", ""),
+                    "fetched_live":  True,
+                    "fetch_time":    datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+                })
+            except Exception:
+                continue
+
         if len(debris_list) >= 20:
+            # Save fresh live data to cache
             os.makedirs("data", exist_ok=True)
             with open(CACHE_FILE, "w") as f:
                 json.dump(debris_list, f, indent=2)
-            print(f"[data_engine] Saved {len(debris_list)} live objects")
+            print(f"[data_engine] LIVE fetch success — {len(debris_list)} real-time objects from CelesTrak")
             return debris_list
+        else:
+            print(f"[data_engine] Live fetch returned too few objects ({len(debris_list)}) — trying cache")
+
     except Exception as e:
         print(f"[data_engine] Live fetch failed: {e}")
 
-    # Use hardcoded fallback — never overwrite cache with this
-    print("[data_engine] Using hardcoded fallback data")
+    # ── Fall back to local cache ───────────────────────────────────────────
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE) as f:
+                cached = json.load(f)
+            if len(cached) >= 20:
+                print(f"[data_engine] Using cached data ({len(cached)} objects) — internet unavailable")
+                return cached
+        except Exception as e:
+            print(f"[data_engine] Cache read failed: {e}")
+
+    # ── Fall back to hardcoded data ────────────────────────────────────────
+    print("[data_engine] Using hardcoded fallback data — 20 real historical objects")
     os.makedirs("data", exist_ok=True)
     with open(CACHE_FILE, "w") as f:
         json.dump(FALLBACK_DATA, f, indent=2)

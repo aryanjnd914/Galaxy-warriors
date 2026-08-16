@@ -157,6 +157,8 @@ tr:hover td { background:#0d0d20; }
 </head>
 <body>
 
+
+
 <div class="topbar">
   <div class="logo">ORBIT<span>-</span>GUARD</div>
   <div class="status-bar">
@@ -1470,5 +1472,111 @@ async function loadDecayTimeline() {
 loadDecayTimeline();
 </script>
 
+
+<div style="margin: 24px 16px;">
+  <div style="background:#0d0d1a; border:1px solid #00ccff; border-radius:12px; padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h2 style="color:#00ccff; font-family:monospace; margin:0;">&#129302; AI MISSION QUEUE — REMOVER-1</h2>
+      <a href="/simulation" style="background:#00ccff;color:#000;font-family:monospace;font-weight:bold;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:0.85rem;">&#9654; LAUNCH AUTO MISSION</a>
+    </div>
+    <p style="color:#888; font-family:monospace; font-size:0.85rem; margin:0 0 16px 0;">AI-ranked debris removal queue — sorted by priority score, Δv cost, and collision risk</p>
+    <div id="mission-queue-table">
+      <p style="color:#888; font-family:monospace;">Loading mission queue...</p>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadMissionQueue() {
+  try {
+    const res = await fetch('/api/mission_queue');
+    const data = await res.json();
+    const container = document.getElementById('mission-queue-table');
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p style="color:#ff003c;font-family:monospace;">No mission data.</p>';
+      return;
+    }
+    let html = `
+      <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:0.82rem;">
+        <thead>
+          <tr style="border-bottom:1px solid #333;">
+            <th style="color:#00ccff;text-align:center;padding:8px;">#</th>
+            <th style="color:#00ccff;text-align:left;padding:8px;">OBJECT</th>
+            <th style="color:#00ccff;text-align:center;padding:8px;">RISK</th>
+            <th style="color:#00ccff;text-align:center;padding:8px;">PRIORITY</th>
+            <th style="color:#00ccff;text-align:center;padding:8px;">ALT km</th>
+            <th style="color:#00ccff;text-align:center;padding:8px;">Δv km/s</th>
+            <th style="color:#00ccff;text-align:center;padding:8px;">ETA min</th>
+            <th style="color:#00ccff;text-align:center;padding:8px;">REENTRY</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.slice(0,10).map(r => {
+            const color = r.risk_level === 'CRITICAL' ? '#ff003c' : r.risk_level === 'HIGH' ? '#ff8800' : '#ffcc00';
+            const reentry = r.reentry_day ? r.reentry_day + ' days' : 'Stable';
+            const reentryColor = r.reentry_day && r.reentry_day < 30 ? '#ff003c' : '#00ff88';
+            return `
+              <tr style="border-bottom:1px solid #1a1a2e;" onmouseover="this.style.background='#0a0a1a'" onmouseout="this.style.background='transparent'">
+                <td style="color:#555;padding:8px;text-align:center;font-weight:bold;">${r.queue_rank}</td>
+                <td style="color:#fff;padding:8px;font-weight:bold;">${r.name}</td>
+                <td style="text-align:center;padding:8px;"><span style="color:${color};font-weight:bold;">${r.risk_level}</span></td>
+                <td style="text-align:center;padding:8px;color:#00ccff;font-weight:bold;">${r.ai_priority_percent}%</td>
+                <td style="text-align:center;padding:8px;color:#888;">${r.perigee}</td>
+                <td style="text-align:center;padding:8px;color:#00ff88;">${r.delta_v_km_s}</td>
+                <td style="text-align:center;padding:8px;color:#ffcc00;">${r.eta_minutes}</td>
+                <td style="text-align:center;padding:8px;color:${reentryColor};font-weight:bold;">${reentry}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+      <p style="color:#555;font-family:monospace;font-size:0.75rem;margin:8px 0 0 0;text-align:right;">Showing top 10 of ${data.length} queued objects</p>
+    `;
+    container.innerHTML = html;
+  } catch(e) {
+    document.getElementById('mission-queue-table').innerHTML = '<p style="color:#ff003c;font-family:monospace;">Error: ' + e.message + '</p>';
+  }
+}
+loadMissionQueue();
+</script>
+
+<div style="position:fixed;bottom:16px;right:16px;background:#0d0d1a;border:1px solid #333;border-radius:8px;padding:8px 14px;font-family:monospace;font-size:0.75rem;z-index:9999;">
+  <span style="color:#888;">WS</span>
+  <span id="ws-status" style="color:#ff003c;margin-left:6px;font-weight:bold;">CONNECTING...</span>
+  <span id="ws-timestamp" style="color:#555;margin-left:10px;">--:--:--</span>
+</div>
+
+<script src="/static/socket.io.min.js"></script>
+<script>
+const socket = io();
+
+socket.on('connect', function() {
+    console.log('[ORBIT-GUARD] WebSocket connected — live updates active');
+    document.getElementById('ws-status').textContent = 'LIVE';
+    document.getElementById('ws-status').style.color = '#00ff88';
+});
+
+socket.on('disconnect', function() {
+    document.getElementById('ws-status').textContent = 'OFFLINE';
+    document.getElementById('ws-status').style.color = '#ff003c';
+});
+
+socket.on('live_update', function(data) {
+    // Update timestamp
+    document.getElementById('ws-timestamp').textContent = data.timestamp;
+
+    // Update SGP4 positions if displayed
+    if (data.sgp4 && window.updateSGP4) {
+        window.updateSGP4(data.sgp4);
+    }
+
+    // Flash the live indicator
+    const indicator = document.getElementById('ws-status');
+    indicator.style.color = '#ffffff';
+    setTimeout(() => { indicator.style.color = '#00ff88'; }, 200);
+
+    console.log('[ORBIT-GUARD] Live update received:', data.timestamp);
+});
+</script>
 </body>
 </html>

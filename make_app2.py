@@ -1,5 +1,4 @@
-from flask import Flask, render_template, jsonify, send_file
-from flask_socketio import SocketIO, emit
+content = '''from flask import Flask, render_template, jsonify, send_file
 from modules.data_engine import fetch_live_tle
 from modules.ml_model import score_debris
 from modules.report_gen import generate_pdf
@@ -11,12 +10,8 @@ from modules.prediction import predict_decay
 from modules.sgp4_propagator import propagate_debris
 from modules.mission_queue import compute_mission_queue
 from modules.voice_alert import speak, announce_critical, announce_conjunction, announce_startup
-import threading
-import time
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'orbitguard2026'
-socketio = SocketIO(app, cors_allowed_origins="*")
 
 print("[startup] Loading debris data...")
 _debris = fetch_live_tle()
@@ -50,24 +45,6 @@ print(f"[startup] Mission queue: {len(_mission_queue)} objects ranked")
 
 announce_startup(len(_scored), sum(1 for d in _scored if d.get("risk_level") == "CRITICAL"))
 
-def background_push():
-    """Push live data to all connected clients every 5 seconds."""
-    while True:
-        time.sleep(5)
-        try:
-            positions = propagate_debris(_scored)
-            socketio.emit('live_update', {
-                'sgp4': positions,
-                'conjunctions': _conjunctions,
-                'timestamp': time.strftime('%H:%M:%S UTC')
-            })
-        except Exception as e:
-            print(f"[socketio] Push error: {e}")
-
-push_thread = threading.Thread(target=background_push, daemon=True)
-push_thread.start()
-print("[startup] WebSocket live push started — every 5 seconds")
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -80,10 +57,6 @@ def simulation():
 def report():
     return render_template("report.html")
 
-@app.route("/api-docs")
-def api_docs():
-    return render_template("api_docs.html")
-
 @app.route("/report/download")
 def report_download():
     debris = fetch_live_tle()
@@ -94,13 +67,6 @@ def report_download():
 @app.route("/api/debris")
 def api_debris():
     return jsonify(_scored)
-
-@app.route("/api/risk/<norad_id>")
-def api_risk(norad_id):
-    obj = next((d for d in _scored if str(d.get("norad_id")) == str(norad_id)), None)
-    if obj:
-        return jsonify(obj)
-    return jsonify({"error": f"Object {norad_id} not found"}), 404
 
 @app.route("/api/sgp4")
 def api_sgp4():
@@ -156,14 +122,11 @@ def api_voice_conjunction():
         announce_conjunction(c.get("object1","OBJ-A"), c.get("object2","OBJ-B"), c.get("distance_km", 0))
     return jsonify({"status": "ok"})
 
-@socketio.on('connect')
-def on_connect():
-    print("[socketio] Client connected")
-    emit('live_update', {
-        'sgp4': _sgp4_positions,
-        'conjunctions': _conjunctions,
-        'timestamp': time.strftime('%H:%M:%S UTC')
-    })
-
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False)
+'''
+
+with open("app.py", "w", encoding="utf-8") as f:
+    f.write(content)
+
+print("app.py fully restored!")
