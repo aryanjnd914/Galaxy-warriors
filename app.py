@@ -15,7 +15,7 @@ import threading
 import time
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'orbitguard2026'
+app.config["SECRET_KEY"] = "orbitguard2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 print("[startup] Loading debris data...")
@@ -51,22 +51,21 @@ print(f"[startup] Mission queue: {len(_mission_queue)} objects ranked")
 announce_startup(len(_scored), sum(1 for d in _scored if d.get("risk_level") == "CRITICAL"))
 
 def background_push():
-    """Push live data to all connected clients every 5 seconds."""
     while True:
         time.sleep(5)
         try:
             positions = propagate_debris(_scored)
-            socketio.emit('live_update', {
-                'sgp4': positions,
-                'conjunctions': _conjunctions,
-                'timestamp': time.strftime('%H:%M:%S UTC')
+            socketio.emit("live_update", {
+                "sgp4": positions,
+                "conjunctions": _conjunctions,
+                "timestamp": time.strftime("%H:%M:%S UTC")
             })
         except Exception as e:
             print(f"[socketio] Push error: {e}")
 
 push_thread = threading.Thread(target=background_push, daemon=True)
 push_thread.start()
-print("[startup] WebSocket live push started — every 5 seconds")
+print("[startup] WebSocket live push started every 5 seconds")
 
 @app.route("/")
 def index():
@@ -156,13 +155,13 @@ def api_voice_conjunction():
         announce_conjunction(c.get("object1","OBJ-A"), c.get("object2","OBJ-B"), c.get("distance_km", 0))
     return jsonify({"status": "ok"})
 
-@socketio.on('connect')
+@socketio.on("connect")
 def on_connect():
     print("[socketio] Client connected")
-    emit('live_update', {
-        'sgp4': _sgp4_positions,
-        'conjunctions': _conjunctions,
-        'timestamp': time.strftime('%H:%M:%S UTC')
+    emit("live_update", {
+        "sgp4": _sgp4_positions,
+        "conjunctions": _conjunctions,
+        "timestamp": time.strftime("%H:%M:%S UTC")
     })
 
 if __name__ == "__main__":
