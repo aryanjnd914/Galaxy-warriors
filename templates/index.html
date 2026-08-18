@@ -1539,6 +1539,11 @@ async function loadMissionQueue() {
         </tbody>
       </table>
       <p style="color:#555;font-family:monospace;font-size:0.75rem;margin:8px 0 0 0;text-align:right;">Showing top 10 of ${data.length} queued objects</p>
+      <div style="text-align:center;margin-top:16px;">
+        <a href="/simulation" style="display:inline-block;background:linear-gradient(135deg,#ff003c,#cc0030);color:#fff;font-family:monospace;font-size:1rem;font-weight:bold;padding:14px 40px;border-radius:8px;text-decoration:none;letter-spacing:2px;box-shadow:0 0 24px #ff003c88;" onmouseover="this.style.boxShadow='0 0 40px #ff003ccc'" onmouseout="this.style.boxShadow='0 0 24px #ff003c88'">
+          &#128640; LAUNCH AUTO MISSION
+        </a>
+      </div>
     `;
     container.innerHTML = html;
   } catch(e) {
@@ -1556,7 +1561,7 @@ loadMissionQueue();
 
 <script src="/static/socket.io.min.js"></script>
 <script>
-const socket = io();
+const socket = io({reconnection:true,reconnectionDelay:5000,reconnectionAttempts:3});
 
 socket.on('connect', function() {
     console.log('[ORBIT-GUARD] WebSocket connected — live updates active');

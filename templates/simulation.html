@@ -135,6 +135,7 @@
     <button class="btn active" id="btn-sim" onclick="toggleSim()">&#9646;&#9646; PAUSE</button>
     <button class="btn active" id="btn-orbits" onclick="toggleOrbits()">&#9711; ORBITS ON</button>
     <button class="btn btn-red" id="btn-mission" onclick="toggleMission()">&#128640; LAUNCH MISSION</button>
+    <button class="btn btn-red" id="btn-automission" onclick="toggleAutoMission()" style="background:linear-gradient(135deg,#7700ff,#4400cc);box-shadow:0 0 12px #7700ff88;">&#129504; AUTO MISSION</button>
     <button class="btn" id="btn-hohmann" onclick="toggleHohmann()" style="border-color:#00ff8844;color:#00ff88">&#9654; HOHMANN PATH</button>
     <button class="btn btn-red" id="btn-kessler" onclick="triggerKessler()" style="border-color:#ff000088;color:#ff4444;animation:kpulse 2s infinite">&#9762; KESSLER EVENT</button>
     <a href="/" class="btn btn-red" style="text-decoration:none">&#8592; MISSION CONTROL</a>
@@ -331,6 +332,9 @@ let orbitLines = [];
 let showOrbits = true;
 let running = true;
 let missionActive = false;
+let autoMissionActive = false;
+let autoMissionQueue = [];
+let autoMissionIndex = 0;
 let removedIds = new Set();
 let selectedMesh = null;
 let missionTarget = null;
@@ -392,8 +396,8 @@ function createDebrisMesh(d) {
 let sgp4Data = {};
 
 function eciToScene(x_eci, y_eci, z_eci) {
-  // ECI coords are in km. Scale to match scene units (EARTH_R=637 = 6371km, so scale = 637/6371)
-  const scale = EARTH_R / 6371;
+  // ECI in km. EARTH_R=637 scene units = 6371 real km → divide km by 10
+  const scale = 1 / 10;
   return new THREE.Vector3(x_eci * scale, z_eci * scale, -y_eci * scale);
 }
 
@@ -431,7 +435,7 @@ async function loadDebrisAndStart() {
   } catch(e) { console.warn('SGP4 unavailable, using orbital math'); }
 
   data.forEach(d => {
-    const orbitR = kmToU(d.perigee + 6371) + EARTH_R * 0.08;
+    const orbitR = (d.perigee + 6371) / 10;
     const incRad = ((d.inclination || 45)) * Math.PI / 180;
     const raanRad = ((d.raan || Math.random()*360)) * Math.PI / 180;
     const startAngle = Math.random() * Math.PI * 2;
@@ -439,16 +443,21 @@ async function loadDebrisAndStart() {
 
     const mesh = createDebrisMesh(d);
 
-    // Use real SGP4 position if available, else orbital math
-    const sgp = sgp4Map[d.norad_id];
-    let initPos;
-    if(sgp && sgp.x_eci !== undefined) {
-      initPos = eciToScene(sgp.x_eci, sgp.y_eci, sgp.z_eci);
-    } else {
-      initPos = getOrbitPos(orbitR, startAngle, incRad, raanRad);
-    }
-    mesh.position.copy(initPos);
-    scene.add(mesh);
+// Use real SGP4 ECI position if available
+const sgp = sgp4Map[d.norad_id];
+let initPos;
+if (sgp && sgp.x_eci !== undefined && sgp.x_eci !== 0) {
+  initPos = eciToScene(sgp.x_eci, sgp.y_eci, sgp.z_eci);
+  // Sanity check — must be outside Earth (scene radius 637)
+  if (initPos.length() < EARTH_R + 10) {
+    // SGP4 gave bad coords, fall back to orbital math
+    initPos = getOrbitPos(orbitR, startAngle, incRad, raanRad);
+  }
+} else {
+  initPos = getOrbitPos(orbitR, startAngle, incRad, raanRad);
+}
+mesh.position.copy(initPos);
+scene.add(mesh);
 
     const orbitLine = createOrbitLine(orbitR, incRad, raanRad, COLORS[d.risk_level]||0x888888);
     scene.add(orbitLine);
@@ -460,12 +469,46 @@ async function loadDebrisAndStart() {
   sgp4Data = sgp4Map;
 
   // Craft
-  const craftGeo = new THREE.SphereGeometry(20, 10, 10);
-  const craftMat = new THREE.MeshPhongMaterial({ color:0x00d4ff, emissive:0x00d4ff, emissiveIntensity:1.0 });
-  craftMesh = new THREE.Mesh(craftGeo, craftMat);
-  const csp = new THREE.Sprite(new THREE.SpriteMaterial({ color:0x00d4ff, transparent:true, opacity:0.6, blending:THREE.AdditiveBlending }));
-  csp.scale.set(100, 100, 1);
-  craftMesh.add(csp);
+  // REMOVER-1 satellite group
+  const craftGroup = new THREE.Group();
+
+  // Main body
+  const bodyGeo = new THREE.BoxGeometry(80, 38, 38);
+  const bodyMat = new THREE.MeshPhongMaterial({ color:0xccddee, emissive:0x223344, shininess:120 });
+  const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+  craftGroup.add(bodyMesh);
+
+  // Solar panel left
+  const spGeo = new THREE.BoxGeometry(130, 5, 45);
+  const spMat = new THREE.MeshPhongMaterial({ color:0x1a4aff, emissive:0x001133, shininess:200 });
+  const spLeft = new THREE.Mesh(spGeo, spMat);
+  spLeft.position.set(-110, 0, 0);
+  craftGroup.add(spLeft);
+
+  // Solar panel right
+  const spRight = new THREE.Mesh(spGeo, spMat);
+  spRight.position.set(110, 0, 0);
+  craftGroup.add(spRight);
+
+  // Antenna
+  const antGeo = new THREE.ConeGeometry(12, 26, 8);
+  const antMat = new THREE.MeshPhongMaterial({ color:0xffffff, emissive:0x444444 });
+  const antMesh = new THREE.Mesh(antGeo, antMat);
+  antMesh.position.set(0, 34, 0);
+  craftGroup.add(antMesh);
+
+  // Thruster
+  const thrGeo = new THREE.CylinderGeometry(7, 10, 14, 8);
+  const thrMat = new THREE.MeshPhongMaterial({ color:0xff6600, emissive:0xff3300, emissiveIntensity:0.8 });
+  const thrMesh = new THREE.Mesh(thrGeo, thrMat);
+  thrMesh.rotation.z = Math.PI/2;
+  thrMesh.position.set(-34, 0, 0);
+  craftGroup.add(thrMesh);
+
+  // Glow
+  // glow removed
+
+  craftMesh = craftGroup;
   craftMesh.visible = false;
   scene.add(craftMesh);
 
@@ -600,7 +643,14 @@ function updateMission() {
     missionTarget.mesh.visible = false;
     missionTarget.orbitLine.visible = false;
     const next = debrisObjects.filter(o=>!removedIds.has(o.data.norad_id)&&(o.data.risk_level==='CRITICAL'||o.data.risk_level==='HIGH'));
-    missionTarget = next[0] || debrisObjects.find(o=>!removedIds.has(o.data.norad_id)) || null;
+    if (autoMissionActive) {
+      launchNextAutoTarget();
+      missionTarget = debrisObjects.find(o =>
+        o.data.name === (autoMissionQueue[autoMissionIndex-1]||{}).name
+      ) || debrisObjects.find(o=>!removedIds.has(o.data.norad_id)) || null;
+    } else {
+      missionTarget = next[0] || debrisObjects.find(o=>!removedIds.has(o.data.norad_id)) || null;
+    }
     if(!missionTarget) {
       missionActive=false; craftMesh.visible=false;
       document.getElementById('btn-mission').textContent='✓ COMPLETE';
@@ -760,6 +810,74 @@ function toggleOrbits() {
   b.textContent=showOrbits?'⊙ ORBITS ON':'⊙ ORBITS OFF';
   b.classList.toggle('active',showOrbits);
 }
+async function toggleAutoMission() {
+  const btn = document.getElementById('btn-automission');
+  if (autoMissionActive) {
+    autoMissionActive = false;
+    missionActive = false;
+    if(craftMesh) craftMesh.visible = false;
+    btn.textContent = '\u129504 AUTO MISSION';
+    btn.style.background = 'linear-gradient(135deg,#7700ff,#4400cc)';
+    return;
+  }
+
+  // Fetch mission queue from AI
+  try {
+    const res = await fetch('/api/mission_queue');
+    const queue = await res.json();
+    autoMissionQueue = queue.slice(0, 10);
+    autoMissionIndex = 0;
+    autoMissionActive = true;
+    missionActive = true;
+    craftMesh.visible = true;
+    btn.textContent = '\u23F9 ABORT AUTO';
+    btn.style.background = 'linear-gradient(135deg,#ff8800,#cc5500)';
+
+    // Set first target from AI queue
+    launchNextAutoTarget();
+
+    // Voice alert
+    fetch('/api/voice_alert').catch(()=>{});
+    console.log('[AUTO MISSION] Started — ' + autoMissionQueue.length + ' targets in AI queue');
+  } catch(e) {
+    console.error('[AUTO MISSION] Failed to fetch queue:', e);
+  }
+}
+
+function launchNextAutoTarget() {
+  if (!autoMissionActive || autoMissionIndex >= autoMissionQueue.length) {
+    autoMissionActive = false;
+    missionActive = false;
+    if(craftMesh) craftMesh.visible = false;
+    document.getElementById('btn-automission').textContent = '\u2713 QUEUE COMPLETE';
+    document.getElementById('btn-automission').style.background = 'linear-gradient(135deg,#00cc44,#008822)';
+    console.log('[AUTO MISSION] All targets captured');
+    return;
+  }
+
+  const queueItem = autoMissionQueue[autoMissionIndex];
+  const noradId = String(queueItem.norad_id).padStart(5,'0');
+
+  // Find matching debris object in scene
+  const target = debrisObjects.find(o =>
+    String(o.data.norad_id).padStart(5,'0') === noradId ||
+    o.data.name === queueItem.name
+  ) || debrisObjects.find(o => !removedIds.has(o.data.norad_id));
+
+  if (target) {
+    missionTarget = target;
+    craftOrbitInc = target.incRad;
+    craftOrbitRaan = target.raanRad;
+    console.log('[AUTO MISSION] Target #' + (autoMissionIndex+1) + ': ' + queueItem.name);
+
+    // Voice alert per target
+    const name = encodeURIComponent(queueItem.name);
+    fetch('/api/voice_mission/' + name).catch(()=>{});
+  }
+
+  autoMissionIndex++;
+}
+
 function toggleMission() {
   missionActive=!missionActive;
   const btn=document.getElementById('btn-mission');

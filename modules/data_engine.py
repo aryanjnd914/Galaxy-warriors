@@ -1,96 +1,105 @@
 import requests, json, os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 CACHE_FILE = "data/cached_debris_tle.json"
-GP_DEBRIS_URL = "https://celestrak.org/GP/query?GROUP=debris&FORMAT=json"
-HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; OrbitGuard/1.0; student research)"}
+API_URL = "https://api.keeptrack.space/v4/sats/brief"
+API_KEY = "kt_demo_00000000000000000000000000"
 
-FALLBACK_DATA = [
-  {"name": "FENGYUN 1C DEB", "norad_id": "29228", "inclination": 98.6, "eccentricity": 0.0012, "mean_motion": 14.20, "perigee": 790, "apogee": 812, "bstar": 0.00021, "raan": 100.0},
-  {"name": "IRIDIUM 33 DEB", "norad_id": "33778", "inclination": 86.4, "eccentricity": 0.0021, "mean_motion": 14.34, "perigee": 760, "apogee": 791, "bstar": 0.00019, "raan": 200.0},
-  {"name": "COSMOS 2251 DEB", "norad_id": "34454", "inclination": 74.0, "eccentricity": 0.0015, "mean_motion": 14.28, "perigee": 770, "apogee": 802, "bstar": 0.00015, "raan": 150.0},
-  {"name": "SL-16 R/B", "norad_id": "22285", "inclination": 71.0, "eccentricity": 0.0005, "mean_motion": 14.15, "perigee": 820, "apogee": 841, "bstar": 0.00005, "raan": 180.0},
-  {"name": "CZ-4B R/B", "norad_id": "27601", "inclination": 98.0, "eccentricity": 0.0008, "mean_motion": 14.22, "perigee": 780, "apogee": 801, "bstar": 0.00008, "raan": 120.0},
-  {"name": "BREEZE-M DEB", "norad_id": "39915", "inclination": 49.0, "eccentricity": 0.0031, "mean_motion": 13.90, "perigee": 400, "apogee": 901, "bstar": 0.00031, "raan": 90.0},
-  {"name": "THOR AGENA DEB", "norad_id": "01642", "inclination": 99.1, "eccentricity": 0.0011, "mean_motion": 14.50, "perigee": 700, "apogee": 722, "bstar": 0.00011, "raan": 45.0},
-  {"name": "DELTA 1 DEB", "norad_id": "06187", "inclination": 90.1, "eccentricity": 0.0020, "mean_motion": 14.10, "perigee": 840, "apogee": 871, "bstar": 0.00012, "raan": 270.0},
-  {"name": "COSMOS 954 DEB", "norad_id": "10361", "inclination": 65.0, "eccentricity": 0.0018, "mean_motion": 14.05, "perigee": 850, "apogee": 880, "bstar": 0.00018, "raan": 310.0},
-  {"name": "SL-8 R/B", "norad_id": "14820", "inclination": 74.1, "eccentricity": 0.0009, "mean_motion": 14.18, "perigee": 800, "apogee": 820, "bstar": 0.00009, "raan": 55.0},
-  {"name": "PEGASUS DEB", "norad_id": "23106", "inclination": 28.5, "eccentricity": 0.0042, "mean_motion": 15.10, "perigee": 350, "apogee": 650, "bstar": 0.00042, "raan": 160.0},
-  {"name": "STARSHINE 3 DEB", "norad_id": "26929", "inclination": 67.0, "eccentricity": 0.0006, "mean_motion": 14.60, "perigee": 680, "apogee": 700, "bstar": 0.00006, "raan": 220.0},
-  {"name": "COSMOS 1275 DEB", "norad_id": "12607", "inclination": 82.9, "eccentricity": 0.0014, "mean_motion": 14.25, "perigee": 775, "apogee": 805, "bstar": 0.00014, "raan": 333.0},
-  {"name": "ATLAS CENTAUR DEB", "norad_id": "03173", "inclination": 28.9, "eccentricity": 0.0033, "mean_motion": 13.75, "perigee": 920, "apogee": 980, "bstar": 0.00033, "raan": 77.0},
-  {"name": "SL-3 R/B", "norad_id": "00733", "inclination": 65.1, "eccentricity": 0.0007, "mean_motion": 14.35, "perigee": 740, "apogee": 762, "bstar": 0.00007, "raan": 195.0},
-  {"name": "COSMOS 3M R/B", "norad_id": "32957", "inclination": 83.0, "eccentricity": 0.0016, "mean_motion": 14.12, "perigee": 830, "apogee": 858, "bstar": 0.00016, "raan": 140.0},
-  {"name": "ARIANE 1 DEB", "norad_id": "12378", "inclination": 51.6, "eccentricity": 0.0025, "mean_motion": 14.00, "perigee": 860, "apogee": 900, "bstar": 0.00025, "raan": 85.0},
-  {"name": "TITAN 3C DEB", "norad_id": "08744", "inclination": 32.5, "eccentricity": 0.0038, "mean_motion": 13.80, "perigee": 910, "apogee": 970, "bstar": 0.00038, "raan": 250.0},
-  {"name": "LACROSSE 5 DEB", "norad_id": "28646", "inclination": 57.0, "eccentricity": 0.0011, "mean_motion": 14.40, "perigee": 720, "apogee": 745, "bstar": 0.00011, "raan": 300.0},
-  {"name": "RESURS DEB", "norad_id": "19650", "inclination": 97.8, "eccentricity": 0.0013, "mean_motion": 14.30, "perigee": 755, "apogee": 782, "bstar": 0.00013, "raan": 15.0}
-]
+MU = 398600.4418  # km^3/s^2
+EARTH_R = 6371.0  # km
 
+def parse_tle_params(tle1, tle2):
+    try:
+        inclination  = float(tle2[8:16].strip())
+        eccentricity = float("0." + tle2[26:33].strip())
+        mean_motion  = float(tle2[52:63].strip())  # revs/day
+        raan         = float(tle2[17:25].strip())
+        # Convert mean motion to rad/s
+        n = mean_motion * 2 * 3.14159265 / 86400.0
+        # Semi-major axis from Kepler's third law: a = (mu/n^2)^(1/3)
+        semi_major   = (MU / (n * n)) ** (1.0/3.0)
+        perigee      = semi_major * (1 - eccentricity) - EARTH_R
+        apogee       = semi_major * (1 + eccentricity) - EARTH_R
+        return inclination, eccentricity, round(perigee,1), round(apogee,1), mean_motion, 0.00015, raan
+    except:
+        return 74.0, 0.002, 500.0, 600.0, 14.3, 0.00015, 0.0
 
 def fetch_live_tle():
-    """
-    Always tries CelesTrak live API first.
-    Falls back to local cache if live fetch fails.
-    Falls back to hardcoded data if no cache exists.
-    This ensures data is always as fresh as possible.
-    """
+    if os.path.exists(CACHE_FILE):
+        mtime = datetime.fromtimestamp(os.path.getmtime(CACHE_FILE))
+        if datetime.now() - mtime < timedelta(hours=1):
+            with open(CACHE_FILE) as f:
+                cached = json.load(f)
+            if cached and "tle_line1" in cached[0] and cached[0].get("perigee", -1) > 0:
+                print(f"[data_engine] Using cached live data ({len(cached)} objects)")
+                return cached
 
-    # ── Try live CelesTrak API ─────────────────────────────────────────────
     try:
-        print("[data_engine] Fetching LIVE data from CelesTrak...")
-        resp = requests.get(GP_DEBRIS_URL, timeout=15, headers=HEADERS)
-        resp.raise_for_status()
-        gp_data = resp.json()
+        print("[data_engine] Fetching LIVE data from KeepTrack API...")
+        r = requests.get(API_URL, headers={"X-API-Key": API_KEY}, timeout=30)
+        r.raise_for_status()
+        all_objects = r.json()
 
-        debris_list = []
-        for obj in gp_data[:50]:  # take top 50 live objects
-            try:
-                debris_list.append({
-                    "name":          obj.get("OBJECT_NAME", "UNKNOWN DEB"),
-                    "norad_id":      str(obj.get("NORAD_CAT_ID", "00000")),
-                    "inclination":   float(obj.get("INCLINATION", 0)),
-                    "eccentricity":  float(obj.get("ECCENTRICITY", 0)),
-                    "mean_motion":   float(obj.get("MEAN_MOTION", 0)),
-                    "perigee":       float(obj.get("PERIGEE", 400)),
-                    "apogee":        float(obj.get("APOGEE", 500)),
-                    "bstar":         float(obj.get("BSTAR", 0)),
-                    "raan":          float(obj.get("RA_OF_ASC_NODE", 0)),
-                    "epoch":         obj.get("EPOCH", ""),
-                    "fetched_live":  True,
-                    "fetch_time":    datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-                })
-            except Exception:
+        # Filter debris and deduplicate by name
+        seen_names = set()
+        debris = []
+        for obj in all_objects:
+            name = str(obj.get("name", "")).strip()
+            if ("DEB" in name or "R/B" in name) and name not in seen_names:
+                seen_names.add(name)
+                debris.append(obj)
+            if len(debris) >= 50:
+                break
+
+        result = []
+        for d in debris:
+            tle1 = d.get("tle1", "")
+            tle2 = d.get("tle2", "")
+            if not tle1 or not tle2:
                 continue
+            inc, ecc, perigee, apogee, mm, bstar, raan = parse_tle_params(tle1, tle2)
+            # Skip objects with invalid orbits
+            if perigee < 100 or perigee > 50000:
+                continue
+            result.append({
+                "name":         d.get("name", "UNKNOWN DEB"),
+                "norad_id":     tle1[2:7].strip() if tle1 else "00000",
+                "tle_line1":    tle1,
+                "tle_line2":    tle2,
+                "inclination":  inc,
+                "eccentricity": ecc,
+                "perigee":      perigee,
+                "apogee":       apogee,
+                "mean_motion":  mm,
+                "bstar":        bstar,
+                "raan":         raan,
+                "country":      d.get("country", "UNKNOWN"),
+                "rcs":          float(d.get("rcs", 0.5) or 0.5),
+                "fetched_live": True,
+                "fetch_time":   datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+            })
+            if len(result) >= 50:
+                break
 
-        if len(debris_list) >= 20:
-            # Save fresh live data to cache
-            os.makedirs("data", exist_ok=True)
-            with open(CACHE_FILE, "w") as f:
-                json.dump(debris_list, f, indent=2)
-            print(f"[data_engine] LIVE fetch success — {len(debris_list)} real-time objects from CelesTrak")
-            return debris_list
-        else:
-            print(f"[data_engine] Live fetch returned too few objects ({len(debris_list)}) — trying cache")
+        os.makedirs("data", exist_ok=True)
+        with open(CACHE_FILE, "w") as f:
+            json.dump(result, f, indent=2)
+
+        print(f"[data_engine] LIVE fetch success — {len(result)} real-time debris objects at {datetime.utcnow().strftime('%H:%M UTC')}")
+        return result
 
     except Exception as e:
         print(f"[data_engine] Live fetch failed: {e}")
 
-    # ── Fall back to local cache ───────────────────────────────────────────
     if os.path.exists(CACHE_FILE):
         try:
             with open(CACHE_FILE) as f:
                 cached = json.load(f)
-            if len(cached) >= 20:
-                print(f"[data_engine] Using cached data ({len(cached)} objects) — internet unavailable")
+            if cached:
+                print(f"[data_engine] Using cached data ({len(cached)} objects)")
                 return cached
-        except Exception as e:
-            print(f"[data_engine] Cache read failed: {e}")
+        except:
+            pass
 
-    # ── Fall back to hardcoded data ────────────────────────────────────────
-    print("[data_engine] Using hardcoded fallback data — 20 real historical objects")
-    os.makedirs("data", exist_ok=True)
-    with open(CACHE_FILE, "w") as f:
-        json.dump(FALLBACK_DATA, f, indent=2)
-    return FALLBACK_DATA
+    print("[data_engine] ERROR: No data available")
+    return []
