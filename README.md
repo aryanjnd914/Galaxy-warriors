@@ -1,4 +1,4 @@
-# ORBIT-GUARD: Space Debris Mission Control
+# Galaxy Warriors: Space Debris Mission Control
 
 > AI-powered space debris tracking, risk assessment, and removal planning system built for NSIC 2026.
 
