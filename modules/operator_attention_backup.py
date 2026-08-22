@@ -84,7 +84,7 @@ def _tracker_loop(show_window=True):
 
                 if run_full_detect:
                     faces = _face_cascade.detectMultiScale(
-                        gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30)
+                        gray, scaleFactor=1.3, minNeighbors=4, minSize=(60, 60)
                     )
                     if len(faces) > 0:
                         last_face = tuple(faces[0])
