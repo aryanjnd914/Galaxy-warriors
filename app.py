@@ -11,13 +11,61 @@ from modules.prediction import predict_decay
 from modules.sgp4_propagator import propagate_debris
 from modules.mission_queue import compute_mission_queue
 from modules.voice_alert import speak, announce_critical, announce_conjunction, announce_startup
+from modules.arduino_led import connect as arduino_connect, update_from_debris as arduino_update, start_background_updater as arduino_start_updater, send_safety_signal as arduino_send_safety_signal
 import threading
 import time
+
+# ── Operator Attention module (safe optional import) ───────────────────────
+try:
+    from modules import operator_attention
+    _ATTENTION_AVAILABLE = True
+except Exception as e:
+    print(f"[app] operator_attention not available: {e}")
+    _ATTENTION_AVAILABLE = False
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "orbitguard2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# ── Arduino LED helpers (safe fallbacks if not connected) ──────────────────
+_led_ok = False
+
+def _led_signal(level):
+    """Send a steady signal: 'CRITICAL', 'HIGH', 'LOW' etc."""
+    if not _led_ok:
+        return
+    try:
+        from modules.arduino_led import send_signal
+        send_signal(level)
+    except Exception:
+        pass
+
+def _led_event(event):
+    """
+    Trigger a named flash pattern on the LED.
+    Events: 'critical_detected', 'mission_capture', 'conjunction_warning'
+    Falls back to send_signal if send_event is not implemented yet.
+    """
+    if not _led_ok:
+        return
+    try:
+        from modules.arduino_led import send_event
+        send_event(event)
+    except AttributeError:
+        try:
+            from modules.arduino_led import send_signal
+            if event == "critical_detected":
+                send_signal("CRITICAL")
+            elif event == "mission_capture":
+                send_signal("LOW")
+            elif event == "conjunction_warning":
+                send_signal("HIGH")
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+# ── Startup data pipeline ──────────────────────────────────────────────────
 print("[startup] Loading debris data...")
 _debris = fetch_live_tle()
 _scored = score_debris(_debris)
@@ -50,6 +98,40 @@ print(f"[startup] Mission queue: {len(_mission_queue)} objects ranked")
 
 announce_startup(len(_scored), sum(1 for d in _scored if d.get("risk_level") == "CRITICAL"))
 
+# ── Arduino LED init ───────────────────────────────────────────────────────
+print("[startup] Connecting to Arduino LED...")
+try:
+    if arduino_connect():
+        _led_ok = True
+        arduino_update(_scored)
+        arduino_start_updater(lambda: _scored, interval=30)
+        print("[startup] Arduino LED system connected")
+    else:
+        print("[startup] Arduino LED not connected — running without hardware")
+except Exception as e:
+    print(f"[startup] Arduino init failed: {e}")
+
+# ── Operator Attention Safety Interlock init ────────────────────────────────
+if _ATTENTION_AVAILABLE:
+    try:
+        operator_attention.start_background_tracker(show_window=True)
+
+        def _safety_led_loop():
+            while True:
+                try:
+                    status = operator_attention.get_status()
+                    if _led_ok and status['state'] != 'NOMINAL':
+                        arduino_send_safety_signal(status['state'])
+                except Exception as e:
+                    print(f"[app] safety LED loop error: {e}")
+                time.sleep(0.2)
+
+        threading.Thread(target=_safety_led_loop, daemon=True).start()
+        print("[startup] Operator attention safety interlock started")
+    except Exception as e:
+        print(f"[startup] Operator attention init failed: {e}")
+
+# ── Background WebSocket push (every 5s) ───────────────────────────────────
 def background_push():
     while True:
         time.sleep(5)
@@ -67,6 +149,7 @@ push_thread = threading.Thread(target=background_push, daemon=True)
 push_thread.start()
 print("[startup] WebSocket live push started every 5 seconds")
 
+# ── Pages ──────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -90,6 +173,7 @@ def report_download():
     pdf = generate_pdf(scored)
     return send_file(pdf, download_name="orbit_guard_report.pdf", as_attachment=True, mimetype="application/pdf")
 
+# ── API Endpoints ──────────────────────────────────────────────────────────
 @app.route("/api/debris")
 def api_debris():
     return jsonify(_scored)
@@ -134,27 +218,70 @@ def api_predictions():
 def api_mission_queue():
     return jsonify(_mission_queue)
 
+# ── Voice + LED Endpoints ──────────────────────────────────────────────────
 @app.route("/api/voice_alert")
 def api_voice_alert():
     critical = [d for d in _scored if d.get("risk_level") == "CRITICAL"]
     if critical:
         announce_critical(critical[0])
+        _led_event("critical_detected")   # RED flash x3
     else:
         speak("ORBIT-GUARD status nominal. No critical debris detected.")
-    return jsonify({"status": "alert sent"})
+        _led_signal("LOW")                # steady GREEN
+    return jsonify({"status": "alert sent", "critical_count": len(critical)})
 
 @app.route("/api/voice_status")
 def api_voice_status():
     speak(f"ORBIT-GUARD Mission Control. Tracking {len(_scored)} debris objects. {len(_conjunctions)} active conjunctions detected.")
+    if any(d.get("risk_level") == "CRITICAL" for d in _scored):
+        _led_signal("CRITICAL")           # steady RED
+    elif any(d.get("risk_level") == "HIGH" for d in _scored):
+        _led_signal("HIGH")               # steady YELLOW
+    else:
+        _led_signal("LOW")                # steady GREEN
     return jsonify({"status": "ok"})
 
 @app.route("/api/voice_conjunction")
 def api_voice_conjunction():
     if _conjunctions:
         c = _conjunctions[0]
-        announce_conjunction(c.get("object1","OBJ-A"), c.get("object2","OBJ-B"), c.get("distance_km", 0))
+        announce_conjunction(c.get("object1", "OBJ-A"), c.get("object2", "OBJ-B"), c.get("distance_km", 0))
+        _led_event("conjunction_warning") # YELLOW flash x2
     return jsonify({"status": "ok"})
 
+# ── LED Event Endpoint (called from simulation.html JS on captures) ────────
+@app.route("/api/led_event/<event>")
+def api_led_event(event):
+    """
+    Call from simulation.html AUTO MISSION JS after each capture:
+        fetch('/api/led_event/capture');
+
+    Events:
+        capture     -> GREEN double-flash (mission success)
+        critical    -> RED flash x3 (threat detected)
+        conjunction -> YELLOW flash x2 (close approach)
+        reentry     -> RED flash x3 (reentry imminent)
+    """
+    if event == "capture":
+        _led_event("mission_capture")
+    elif event == "critical":
+        _led_event("critical_detected")
+    elif event == "conjunction":
+        _led_event("conjunction_warning")
+    elif event == "reentry":
+        _led_event("critical_detected")
+    else:
+        return jsonify({"error": f"Unknown event: {event}"}), 400
+    return jsonify({"status": "led triggered", "event": event})
+
+# ── Operator Attention Safety Endpoint ──────────────────────────────────────
+@app.route("/api/safety_status")
+def api_safety_status():
+    if _ATTENTION_AVAILABLE:
+        return jsonify(operator_attention.get_status())
+    return jsonify({"attention_score": 100.0, "state": "NOMINAL", "manual_armed": True})
+
+# ── WebSocket ──────────────────────────────────────────────────────────────
 @socketio.on("connect")
 def on_connect():
     print("[socketio] Client connected")

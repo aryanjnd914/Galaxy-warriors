@@ -642,6 +642,7 @@ function updateMission() {
     removedIds.add(missionTarget.data.norad_id);
     missionTarget.mesh.visible = false;
     missionTarget.orbitLine.visible = false;
+    fetch('/api/led_event/mission_capture').catch(()=>{}); 
     const next = debrisObjects.filter(o=>!removedIds.has(o.data.norad_id)&&(o.data.risk_level==='CRITICAL'||o.data.risk_level==='HIGH'));
     if (autoMissionActive) {
       launchNextAutoTarget();
@@ -1278,3 +1279,5 @@ setInterval(updateLiveBadge, 30000);
 
 </body>
 </html>
+
+

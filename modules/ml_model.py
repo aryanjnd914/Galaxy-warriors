@@ -46,7 +46,7 @@ def compute_risk_score(obj):
     return round(min(1.0, max(0.0, score)), 4)
 
 def classify_risk(score):
-    if score > 0.90:
+    if score > 0.83:
         return "CRITICAL"
     elif score > 0.75:
         return "HIGH"
