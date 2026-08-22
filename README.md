@@ -52,7 +52,7 @@ Open http://localhost:5000
 ## API Endpoints
 | Endpoint | Description |
 |----------|-------------|
-| /api/debris | All 20 scored debris objects |
+| /api/debris | All 50 scored debris objects |
 | /api/conjunctions | Top 10 closest approach pairs |
 | /api/anomalies | Isolation Forest anomaly detection |
 | /api/monte_carlo | 24H/48H/72H collision probabilities |
